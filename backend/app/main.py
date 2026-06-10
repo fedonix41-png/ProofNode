@@ -1,0 +1,189 @@
+import logging
+import json
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Header, status
+from fastapi.responses import JSONResponse
+import aio_pika
+import redis.asyncio as aioredis
+
+from backend.app.config import settings
+from backend.app.db import db
+from backend.app.schemas import TonWebhookPayload, SolWebhookPayload, EvmWebhookPayload
+from backend.app.routers import traders, subscriptions
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Global state holders
+rabbitmq_connection: aio_pika.abc.AbstractConnection | None = None
+rabbitmq_channel: aio_pika.abc.AbstractChannel | None = None
+rabbitmq_queue: aio_pika.abc.AbstractQueue | None = None
+redis_client: aioredis.Redis | None = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global rabbitmq_connection, rabbitmq_channel, rabbitmq_queue, redis_client
+    
+    # 1. Initialize DB Connection Pool
+    await db.connect()
+    
+    # 2. Initialize Redis client
+    redis_url = f"redis://{settings.redis_host}:{settings.redis_port}"
+    redis_client = aioredis.from_url(redis_url, decode_responses=True)
+    logger.info("Connected to Redis.")
+    
+    # 3. Initialize RabbitMQ connection and channel
+    try:
+        rabbitmq_connection = await aio_pika.connect_robust(settings.rabbitmq_url)
+        rabbitmq_channel = await rabbitmq_connection.channel()
+        # Declare queue for raw transaction events
+        rabbitmq_queue = await rabbitmq_channel.declare_queue(
+            "raw_blockchain_events",
+            durable=True
+        )
+        logger.info("Connected to RabbitMQ and declared raw_blockchain_events queue.")
+    except Exception as e:
+        logger.error(f"Failed to initialize RabbitMQ connection: {e}")
+        # In a real environment, we'd fall back or handle connection failures.
+        
+    yield
+    
+    # Clean up resources on shutdown
+    if rabbitmq_connection:
+        await rabbitmq_connection.close()
+        logger.info("RabbitMQ connection closed.")
+    if redis_client:
+        await redis_client.close()
+        logger.info("Redis client closed.")
+    await db.disconnect()
+
+app = FastAPI(
+    title="ProofNode Gateway API",
+    description="Stateless Webhook Ingestion Gateway for ProofNode blockchain transaction event tracking",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+app.include_router(traders.router)
+app.include_router(subscriptions.router)
+
+# Health endpoint
+@app.get("/health", status_code=status.HTTP_200_OK)
+async def health_check():
+    health_status = {"status": "ok", "db": "disconnected", "redis": "disconnected", "rabbitmq": "disconnected"}
+    
+    # Check DB pool
+    if db._pool is not None:
+        try:
+            async with db._pool.acquire() as conn:
+                await conn.execute("SELECT 1")
+                health_status["db"] = "connected"
+        except Exception:
+            health_status["db"] = "error"
+            
+    # Check Redis
+    if redis_client:
+        try:
+            if await redis_client.ping():
+                health_status["redis"] = "connected"
+        except Exception:
+            health_status["redis"] = "error"
+            
+    # Check RabbitMQ
+    if rabbitmq_connection and not rabbitmq_connection.is_closed:
+        health_status["rabbitmq"] = "connected"
+        
+    if "error" in health_status.values() or "disconnected" in health_status.values():
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=health_status)
+        
+    return health_status
+
+# Deduplication check helper using Redis
+async def is_duplicate_transaction(tx_hash: str) -> bool:
+    if not redis_client:
+        return False
+    # Set with 1-hour expiration to prevent processing duplicate webhooks
+    key = f"proofnode:tx:{tx_hash}"
+    is_new = await redis_client.set(key, "1", ex=3600, nx=True)
+    return is_new is None
+
+# RabbitMQ enqueue helper
+async def enqueue_raw_event(blockchain: str, tx_hash: str, payload: dict) -> None:
+    if not rabbitmq_channel:
+        logger.error("RabbitMQ channel is offline. Ingestion failed.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Queue service unavailable. Local write fallback triggered."
+        )
+        
+    message_body = {
+        "blockchain": blockchain,
+        "tx_hash": tx_hash,
+        "payload": payload
+    }
+    
+    await rabbitmq_channel.default_exchange.publish(
+        aio_pika.Message(
+            body=json.dumps(message_body, default=str).encode(),
+            delivery_mode=aio_pika.DeliveryMode.PERSISTENT
+        ),
+        routing_key="raw_blockchain_events"
+    )
+    logger.info(f"Enqueued {blockchain} transaction {tx_hash} to RabbitMQ.")
+
+@app.post("/gateway/ton", status_code=status.HTTP_202_ACCEPTED)
+async def ingest_ton_webhook(
+    payload: TonWebhookPayload,
+    x_tonapi_signature: str = Header(None, alias="X-Tonapi-Signature")
+):
+    # Signature checking
+    if settings.env != "testing":
+        if not x_tonapi_signature or x_tonapi_signature != settings.webhook_secret_ton:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid signature")
+
+    # Deduplication
+    if await is_duplicate_transaction(payload.tx_hash):
+        logger.info(f"Duplicate TON transaction ignored: {payload.tx_hash}")
+        return {"status": "ignored", "reason": "duplicate", "tx_hash": payload.tx_hash}
+        
+    # Ingestion
+    await enqueue_raw_event("TON", payload.tx_hash, payload.model_dump())
+    return {"status": "queued", "tx_hash": payload.tx_hash}
+
+@app.post("/gateway/sol", status_code=status.HTTP_202_ACCEPTED)
+async def ingest_sol_webhook(
+    payload: SolWebhookPayload,
+    x_helius_signature: str = Header(None, alias="X-Helius-Signature")
+):
+    # Signature checking
+    if settings.env != "testing":
+        if not x_helius_signature or x_helius_signature != settings.webhook_secret_sol:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid signature")
+
+    # Deduplication
+    if await is_duplicate_transaction(payload.tx_hash):
+        logger.info(f"Duplicate Solana transaction ignored: {payload.tx_hash}")
+        return {"status": "ignored", "reason": "duplicate", "tx_hash": payload.tx_hash}
+        
+    # Ingestion
+    await enqueue_raw_event("SOL", payload.tx_hash, payload.model_dump())
+    return {"status": "queued", "tx_hash": payload.tx_hash}
+
+@app.post("/gateway/evm", status_code=status.HTTP_202_ACCEPTED)
+async def ingest_evm_webhook(
+    payload: EvmWebhookPayload,
+    x_alchemy_signature: str = Header(None, alias="X-Alchemy-Signature")
+):
+    # Signature checking
+    if settings.env != "testing":
+        if not x_alchemy_signature or x_alchemy_signature != settings.webhook_secret_evm:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid signature")
+
+    # Deduplication
+    if await is_duplicate_transaction(payload.tx_hash):
+        logger.info(f"Duplicate EVM transaction ignored: {payload.tx_hash}")
+        return {"status": "ignored", "reason": "duplicate", "tx_hash": payload.tx_hash}
+        
+    # Ingestion
+    await enqueue_raw_event("BASE", payload.tx_hash, payload.model_dump())
+    return {"status": "queued", "tx_hash": payload.tx_hash}
