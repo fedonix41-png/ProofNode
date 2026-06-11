@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
         await rabbitmq_connection.close()
         logger.info("RabbitMQ connection closed.")
     if redis_client:
-        await redis_client.close()
+        await redis_client.aclose()
         logger.info("Redis client closed.")
     await db.disconnect()
 
