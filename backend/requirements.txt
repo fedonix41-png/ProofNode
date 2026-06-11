@@ -11,6 +11,9 @@ aio-pika>=9.4.0
 
 # Cryptography & Core Helpers
 cryptography>=42.0.5
+solana>=0.30.0
+solders>=0.18.0
+base58>=2.1.1
 
 # Testing
 pytest>=8.1.1

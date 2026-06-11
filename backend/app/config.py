@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     premium_price_ton: float = Field(default=2.5, alias="PREMIUM_PRICE_TON")
     premium_price_stars: int = Field(default=800, alias="PREMIUM_PRICE_STARS")
     referral_credit_per_invite: int = Field(default=2, alias="REFERRAL_CREDIT_PER_INVITE")
+    high_winrate_threshold: float = Field(default=60.0, alias="HIGH_WINRATE_THRESHOLD")
+
+    # DEX Aggregators & Execution
+    jupiter_api_url: str = Field(default="https://quote-api.jup.ag/v6", alias="JUPITER_API_URL")
+    oneinch_api_key: str = Field(default="mock_1inch_key", alias="ONEINCH_API_KEY")
+    stonfi_api_url: str = Field(default="https://api.ston.fi/v1", alias="STONFI_API_URL")
+    max_slippage_bps: int = Field(default=300, alias="MAX_SLIPPAGE_BPS")  # Max 3% slippage
+    max_gas_price_gwei: float = Field(default=50.0, alias="MAX_GAS_PRICE_GWEI")
 
     # FastAPI settings
     env: str = Field(default="development", alias="ENV")
