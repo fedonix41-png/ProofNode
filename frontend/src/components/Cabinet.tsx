@@ -1,0 +1,132 @@
+import React, { useState } from 'react';
+import { Key, Settings, Zap, Copy, CheckCircle2 } from 'lucide-react';
+import { splitKey } from '../utils/sss';
+
+export const Cabinet: React.FC = () => {
+  const [pkInput, setPkInput] = useState('');
+  const [share3, setShare3] = useState('');
+  const [isCopied, setIsCopied] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleSetupCopying = async () => {
+    if (!pkInput) return;
+    setIsProcessing(true);
+
+    try {
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+      }
+
+      // 1. Split Key
+      const shares = splitKey(pkInput);
+      const [s1, s2, s3] = shares;
+
+      // 2. Save Share 1 Locally
+      localStorage.setItem('sss_share_1', s1);
+
+      // 3. Send Share 2 to "Server" (Mock API call)
+      console.log('Sending Share 2 to server:', s2);
+      await fetch('/api/wallets/sss/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ server_share: s2 })
+      }).catch(e => console.warn('Mock API call failed, continuing anyway:', e));
+
+      // 4. Display Share 3 to user
+      setShare3(s3);
+      setPkInput(''); // Clear input from RAM
+
+    } catch (e: any) {
+      alert(`Error setting up: ${e.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(share3);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+  };
+
+  return (
+    <div className="animate-fade-in flex flex-col gap-4">
+      <div className="flex items-center justify-between mb-2">
+        <h2>Cabinet</h2>
+        <button className="p-2 bg-white/5 rounded-full border border-[var(--glass-border)]">
+          <Settings size={20} />
+        </button>
+      </div>
+
+      <div className="glass-card flex flex-col gap-3">
+        <div className="flex items-center gap-2 mb-2">
+          <Zap className="text-[var(--accent-blue)]" size={24} />
+          <h3 className="text-lg font-bold">1-Click Copy Trading</h3>
+        </div>
+        <p className="text-hint text-sm">
+          Set up automated proxy trading. We use Client-Side Shamir's Secret Sharing (2-of-3).
+          Your full private key never leaves your device.
+        </p>
+
+        {!share3 ? (
+          <>
+            <input 
+              type="password" 
+              className="input-glass mt-2 font-mono text-sm" 
+              placeholder="Paste 64-char Hex Private Key" 
+              value={pkInput}
+              onChange={(e) => setPkInput(e.target.value)}
+            />
+            <button 
+              className="btn-primary mt-2" 
+              onClick={handleSetupCopying}
+              disabled={isProcessing || pkInput.length < 10}
+            >
+              <Key size={18} />
+              {isProcessing ? 'Encrypting...' : 'Set up 1-Click Copying'}
+            </button>
+          </>
+        ) : (
+          <div className="mt-4 p-4 rounded-xl bg-[var(--accent-green)]/10 border border-[var(--accent-green)]/30">
+            <h4 className="text-[var(--accent-green)] font-bold mb-2 flex items-center gap-2">
+              <CheckCircle2 size={18} />
+              Setup Complete
+            </h4>
+            <p className="text-sm text-white/90 mb-3">
+              Share 1 is saved on your device. Share 2 is on the server.
+              <br/><br/>
+              <b>Backup Share 3 below.</b> You will need it to recover your key if you lose this device!
+            </p>
+            <div className="relative">
+              <div className="p-3 bg-black/40 rounded-lg font-mono text-xs break-all text-hint border border-white/10">
+                {share3}
+              </div>
+              <button 
+                className="absolute right-2 top-2 p-1.5 bg-[var(--secondary-bg)] rounded-md border border-white/10 hover:bg-white/10 transition-colors"
+                onClick={copyToClipboard}
+              >
+                {isCopied ? <CheckCircle2 size={16} className="text-[var(--accent-green)]" /> : <Copy size={16} />}
+              </button>
+            </div>
+            <button 
+              className="btn-secondary w-full mt-4" 
+              onClick={() => setShare3('')}
+            >
+              I have saved my backup
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="glass-card flex flex-col gap-3 opacity-50 pointer-events-none">
+        <h3 className="text-lg font-bold">Author Setup (Coming Soon)</h3>
+        <p className="text-hint text-sm">Register your channel, verify your wallet, and set subscription prices.</p>
+        <button className="btn-secondary w-full text-left">Connect Channel</button>
+        <button className="btn-secondary w-full text-left">Set Tariff Pricing</button>
+      </div>
+    </div>
+  );
+};
