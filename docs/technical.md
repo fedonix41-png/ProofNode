@@ -232,3 +232,12 @@ Private keys for proxy wallets are encrypted using Envelope Encryption:
 ### Resilience Testing
 - **Chaos Testing**: Toxiproxy (`tests/test_chaos.py`) simulates RabbitMQ/PostgreSQL network failures, verifying that asynchronous workers gracefully retry or requeue failed executions.
 - **Load Testing**: Locust (`locustfile.py`) simulates 1000+ concurrent webhook ingests to ensure sub-200ms API latency SLAs.
+
+---
+
+## Frontend & E2E Testing (Phase 12+)
+
+- **Framework**: Playwright is used for End-to-End (E2E) testing.
+- **Viewport**: Tests execute via a simulated mobile viewport (`320px x 600px`) natively mimicking Telegram Mini App runtime resolution constraints.
+- **Auth Mocking**: TMA environments are stubbed directly in `/frontend/src/utils/mockTelegram.ts` permitting auth tests to proceed completely offline without an active Telegram client session.
+- **CI/CD Integration**: Playwright test suites act as gatekeepers for pull requests, executed automatically via GitHub Actions `.github/workflows/e2e-tests.yml`.

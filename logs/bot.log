@@ -7,4 +7,11 @@ INFO:__main__:Starting Telegram Bot long-polling...
 INFO:aiogram.dispatcher:Start polling
 INFO:aiogram.dispatcher:Run polling for bot @ProofNode_bot id=8996154601 - 'ProofNode'
 INFO:__main__:User 5031906280 (@Jonnymnemoniii) triggered /start
-INFO:aiogram.event:Update id=112947181 is handled. Duration 533 ms by bot id=8996154601
+INFO:aiogram.event:Update id=112947184 is handled. Duration 558 ms by bot id=8996154601
+WARNING:aiogram.dispatcher:Received SIGTERM signal
+INFO:aiogram.dispatcher:Polling stopped for bot @ProofNode_bot id=8996154601 - 'ProofNode'
+INFO:aiogram.dispatcher:Polling stopped
+INFO:bot.consumer:Closing Bot Consumer RabbitMQ connection...
+INFO:bot.scheduler:Subscription expiration scheduler worker stopped.
+INFO:backend.app.db:Database connection pool closed.
+INFO:__main__:Bot components clean shutdown complete.

@@ -50,7 +50,12 @@ frontend/build
 
 # Logs
 logs/
+/logs/
 *.log
+
+# Runtime
+/.pids/
+.pids/
 
 # Pytest / Coverage
 .pytest_cache/

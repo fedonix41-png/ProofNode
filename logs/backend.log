@@ -1,4 +1,4 @@
-INFO:     Started server process [976845]
+INFO:     Started server process [1293942]
 INFO:     Waiting for application startup.
 INFO:backend.app.db:Database connection pool initialized.
 INFO:backend.app.main:Connected to Redis.
@@ -7,5 +7,12 @@ INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 INFO:     107.189.22.151:0 - "GET /api/traders HTTP/1.1" 200 OK
 INFO:     107.189.22.151:0 - "GET /api/traders HTTP/1.1" 200 OK
-INFO:     107.189.22.151:0 - "GET /api/users/referrals?user_id=123456789 HTTP/1.1" 404 Not Found
-INFO:     107.189.22.151:0 - "GET /api/users/referrals?user_id=123456789 HTTP/1.1" 404 Not Found
+INFO:     107.189.22.151:0 - "GET /api/users/referrals HTTP/1.1" 401 Unauthorized
+INFO:     107.189.22.151:0 - "GET /api/users/referrals HTTP/1.1" 401 Unauthorized
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:backend.app.main:RabbitMQ connection closed.
+INFO:backend.app.main:Redis client closed.
+INFO:backend.app.db:Database connection pool closed.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1293942]
