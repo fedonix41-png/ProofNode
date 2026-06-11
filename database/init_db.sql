@@ -192,3 +192,25 @@ CREATE TABLE IF NOT EXISTS signals (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     closed_at TIMESTAMP WITH TIME ZONE
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_credits INT DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS premium_subscriptions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    payment_tx_hash VARCHAR(128),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS commission_payouts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    period_start TIMESTAMP WITH TIME ZONE NOT NULL,
+    period_end TIMESTAMP WITH TIME ZONE NOT NULL,
+    total_volume NUMERIC(40, 18),
+    commission_amount NUMERIC(40, 18),
+    payout_tx_hash VARCHAR(128),
+    status VARCHAR(20) DEFAULT 'PENDING',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
