@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Users, Copy, CheckCircle2 } from 'lucide-react';
+import { fetchApi } from '../lib/api';
+import { Skeleton } from './ui/Skeleton';
 
 interface ReferralStats {
   user_id: number;
@@ -16,14 +18,12 @@ export const Referrals: React.FC = () => {
   useEffect(() => {
     const fetchReferrals = async () => {
       try {
-        const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345; // Mock for dev
-        const res = await fetch(`/api/users/referrals?user_id=${userId}`);
-        if (res.ok) {
-          const data = await res.json();
+        const data = await fetchApi('/api/users/referrals');
+        if (data) {
           setStats(data);
         }
-      } catch (err) {
-        console.error("Failed to fetch referrals", err);
+      } catch (e) {
+        console.error('Failed to fetch referrals:', e);
       } finally {
         setIsLoading(false);
       }
@@ -58,7 +58,16 @@ export const Referrals: React.FC = () => {
       </div>
       
       {isLoading ? (
-        <div className="text-sm text-hint">Loading referral stats...</div>
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-2">
+            <Skeleton className="h-16 rounded-lg" />
+            <Skeleton className="h-16 rounded-lg" />
+          </div>
+          <div className="mt-2">
+            <Skeleton className="h-4 w-24 mb-2" />
+            <Skeleton className="h-10 rounded-lg" />
+          </div>
+        </div>
       ) : stats ? (
         <>
           <div className="grid grid-cols-2 gap-2">

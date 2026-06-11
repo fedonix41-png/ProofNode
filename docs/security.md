@@ -24,3 +24,12 @@ Designed for background execution while the user is offline.
 ### Operational Hazards & Constraints
 - **KMS Keys:** The master KMS key must remain an ephemeral runtime secret. It must never be committed to source control.
 - **Database Exposure:** Even in the event of a database dump leak, automated proxy wallet keys remain securely encrypted, and SSS Share 2 is useless without the client's Share 1.
+
+## API Authentication (Phase 10)
+
+All protected backend API endpoints enforce authentication via Telegram Mini App (TMA) `initData`.
+
+- **Mechanism:** The client must send an `Authorization: tma <initData>` header.
+- **Verification:** The backend `get_current_user` FastAPI dependency extracts the data and cryptographically verifies it using HMAC-SHA-256 against the `BOT_TOKEN`.
+- **Identity:** The Telegram `user.id` from the validated payload is strictly used as the `current_user` for all database operations, ignoring any user-supplied IDs in request payloads to prevent Broken Access Control (BOLA/IDOR) vulnerabilities.
+- **CORS:** Cross-Origin Resource Sharing is restricted to local development (`localhost:5173`) and dynamic tunneling services (e.g., Cloudflare, Ngrok) using regex pattern matching.

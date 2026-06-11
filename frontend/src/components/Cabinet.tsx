@@ -3,6 +3,8 @@ import { Key, Settings, Zap, Copy, CheckCircle2 } from 'lucide-react';
 import { splitKey } from '../utils/sss';
 import { Referrals } from './Referrals';
 import { PremiumUpsell } from './PremiumUpsell';
+import { fetchApi } from '../lib/api';
+import { toast } from './ui/Toaster';
 
 export const Cabinet: React.FC = () => {
   const [pkInput, setPkInput] = useState('');
@@ -33,9 +35,8 @@ export const Cabinet: React.FC = () => {
 
       // 3. Send Share 2 to "Server" (Mock API call)
       console.log('Sending Share 2 to server:', s2);
-      await fetch('/api/wallets/sss/register', {
+      await fetchApi('/api/wallets/sss/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ server_share: s2 })
       }).catch(e => console.warn('Mock API call failed, continuing anyway:', e));
 
@@ -44,7 +45,7 @@ export const Cabinet: React.FC = () => {
       setPkInput(''); // Clear input from RAM
 
     } catch (e: any) {
-      alert(`Error setting up: ${e.message}`);
+      toast(`Error setting up: ${e.message}`, 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -161,22 +162,19 @@ export const Cabinet: React.FC = () => {
               disabled={!signalToken}
               onClick={async () => {
                 try {
-                  const resp = await fetch(`/api/traders/${MOCK_TRADER_ID}/signals`, {
+                  const signal = await fetchApi(`/api/traders/${MOCK_TRADER_ID}/signals`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       token_address: signalToken,
                       blockchain: 'TON',
                       direction: signalType
                     })
                   });
-                  if (!resp.ok) throw new Error('Failed to create signal');
-                  const signal = await resp.json();
                   setOpenSignals([signal, ...openSignals]);
-                  alert('Signal broadcasted successfully!');
+                  toast('Signal broadcasted successfully!', 'success');
                   setSignalToken('');
                 } catch (e: any) {
-                  alert('Failed to broadcast signal: ' + e.message);
+                  toast('Failed to broadcast signal: ' + e.message, 'error');
                 }
               }}
             >
@@ -196,14 +194,13 @@ export const Cabinet: React.FC = () => {
                       className="px-2 py-1 bg-white/10 rounded hover:bg-white/20 text-xs"
                       onClick={async () => {
                         try {
-                          const resp = await fetch(`/api/traders/${MOCK_TRADER_ID}/signals/${signal.id}/close`, {
+                          await fetchApi(`/api/traders/${MOCK_TRADER_ID}/signals/${signal.id}/close`, {
                             method: 'POST'
                           });
-                          if (!resp.ok) throw new Error('Failed to close');
                           setOpenSignals(openSignals.filter(s => s.id !== signal.id));
-                          alert('Signal closed!');
+                          toast('Signal closed!', 'success');
                         } catch(e: any) {
-                          alert('Error closing signal: ' + e.message);
+                          toast('Error closing signal: ' + e.message, 'error');
                         }
                       }}
                     >

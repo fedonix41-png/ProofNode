@@ -7,6 +7,7 @@ import { Leaderboard } from './components/Leaderboard';
 import { Cabinet } from './components/Cabinet';
 import { TraderProfile } from './components/TraderProfile';
 import { initMockTelegram } from './utils/mockTelegram';
+import { Toaster } from './components/ui/Toaster';
 
 // Ensure mock telegram is initialized if running outside TMA
 initMockTelegram();
@@ -75,6 +76,7 @@ function App() {
             setSelectedTraderSlug(null);
           }} 
         />
+        <Toaster />
       </div>
     </TonConnectUIProvider>
   );

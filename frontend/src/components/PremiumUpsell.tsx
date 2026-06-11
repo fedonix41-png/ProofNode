@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Star, Zap, Infinity, ShieldCheck } from 'lucide-react';
+import { fetchApi } from '../lib/api';
+import { toast } from './ui/Toaster';
 
 export const PremiumUpsell: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -10,26 +12,21 @@ export const PremiumUpsell: React.FC = () => {
       // Mock payment flow
       console.log(`Initiating ${method} payment...`);
       
-      const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
       const txHash = `mock_tx_${Date.now()}`;
       
-      const res = await fetch('/api/subscriptions/premium', {
+      await fetchApi('/api/subscriptions/premium', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: userId,
           tx_hash: txHash,
           payment_method: method
         })
       });
       
-      if (!res.ok) throw new Error('Payment verification failed');
-      
-      alert('Premium purchased successfully!');
+      toast('Premium purchased successfully!', 'success');
       // Ideally we should reload user state here or notify parent component
       
     } catch (e: any) {
-      alert(`Error purchasing premium: ${e.message}`);
+      toast(`Error purchasing premium: ${e.message}`, 'error');
     } finally {
       setIsProcessing(false);
     }

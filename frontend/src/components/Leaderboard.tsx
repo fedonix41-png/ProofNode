@@ -3,8 +3,10 @@ import { TonConnectButton, useTonConnectUI, useTonWallet } from '@tonconnect/ui-
 import { Trophy, Star, ShieldCheck } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { generateSparklinePath } from '../utils/sparkline';
+import { toast } from './ui/Toaster';
+import { Skeleton } from './ui/Skeleton';
 
-
+import { useTraderStore } from '../store/useTraderStore';
 
 interface LeaderboardProps {
   onTraderSelect?: (slug: string) => void;
@@ -13,46 +15,25 @@ interface LeaderboardProps {
 export const Leaderboard: React.FC<LeaderboardProps> = ({ onTraderSelect }) => {
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
-  const [traders, setTraders] = useState<any[]>([]);
+  const { traders, isLoading, fetchTraders } = useTraderStore();
   const [activeFilter, setActiveFilter] = useState('All');
-  const [isLoading, setIsLoading] = useState(false);
 
   React.useEffect(() => {
-    const fetchTraders = async () => {
-      setIsLoading(true);
-      try {
-        let url = '/api/traders';
-        const params = new URLSearchParams();
-        if (['TON', 'SOL', 'BASE'].includes(activeFilter)) {
-          params.append('blockchain', activeFilter);
-        } else if (activeFilter === 'High Winrate') {
-          params.append('high_winrate', 'true');
-        }
-        
-        if (params.toString()) {
-          url += `?${params.toString()}`;
-        }
-        
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = await res.json();
-          setTraders(data);
-        }
-      } catch (e) {
-        console.error('Failed to fetch traders', e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchTraders();
-  }, [activeFilter]);
+    const filters: any = {};
+    if (['TON', 'SOL', 'BASE'].includes(activeFilter)) {
+      filters.blockchain = activeFilter;
+    } else if (activeFilter === 'High Winrate') {
+      filters.high_winrate = true;
+    }
+    fetchTraders(filters);
+  }, [activeFilter, fetchTraders]);
 
   const handleSubscribe = async (trader: any) => {
     if (!wallet) {
       if (window.Telegram?.WebApp?.HapticFeedback) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
       }
-      alert('Please connect your TON wallet first');
+      toast('Please connect your TON wallet first', 'error');
       return;
     }
 
@@ -78,7 +59,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onTraderSelect }) => {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
       }
       console.log('Transaction success:', result);
-      alert(`Subscribed to ${trader.name}!`);
+      toast(`Subscribed to ${trader.name}!`, 'success');
 
     } catch (e) {
       console.error(e);
@@ -121,12 +102,32 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onTraderSelect }) => {
 
       <div className="flex flex-col gap-3">
         {isLoading ? (
-          <div className="text-center text-hint py-8 animate-pulse">Loading arena...</div>
+          <>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="glass-card flex flex-col gap-3">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="w-10 h-10 rounded-full" />
+                    <div className="flex flex-col gap-2">
+                      <Skeleton className="h-5 w-24" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <Skeleton className="h-6 w-16" />
+                    <Skeleton className="h-3 w-12" />
+                  </div>
+                </div>
+                <Skeleton className="w-full h-12 mt-1" />
+                <Skeleton className="w-full h-10 mt-2" />
+              </div>
+            ))}
+          </>
         ) : traders.map((trader, index) => (
           <div 
             key={trader.id} 
             className="glass-card flex flex-col gap-3 relative cursor-pointer hover:bg-white/5 transition-colors"
-            onClick={() => onTraderSelect && onTraderSelect(trader.public_slug)}
+            onClick={() => onTraderSelect && trader.public_slug && onTraderSelect(trader.public_slug)}
           >
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-3">

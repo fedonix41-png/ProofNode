@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { fetchApi } from '../lib/api';
+import { toast } from './ui/Toaster';
 
 interface TraderProfileProps {
   slug: string;
@@ -14,9 +16,7 @@ export const TraderProfile: React.FC<TraderProfileProps> = ({ slug, onBack }) =>
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const resp = await fetch(`/api/traders/${slug}`);
-        if (!resp.ok) throw new Error('Trader not found');
-        const data = await resp.json();
+        const data = await fetchApi(`/api/traders/${slug}`);
         setProfile(data);
       } catch (err: any) {
         setError(err.message);
@@ -76,7 +76,7 @@ export const TraderProfile: React.FC<TraderProfileProps> = ({ slug, onBack }) =>
             if (window.Telegram?.WebApp?.HapticFeedback) {
               window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
             }
-            alert('Setup 1-Click Copy in Cabinet!');
+            toast('Setup 1-Click Copy in Cabinet!', 'info');
           }}
         >
           <TrendingUp size={18} className="mr-2 inline" /> Copy Trade
