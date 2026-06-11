@@ -34,6 +34,9 @@ class Settings(BaseSettings):
 
     # Platform
     platform_treasury_address: str = Field(default="EQ_PLATFORM_TREASURY_ADDRESS", alias="PLATFORM_TREASURY_ADDRESS")
+    premium_price_ton: float = Field(default=2.5, alias="PREMIUM_PRICE_TON")
+    premium_price_stars: int = Field(default=800, alias="PREMIUM_PRICE_STARS")
+    referral_credit_per_invite: int = Field(default=2, alias="REFERRAL_CREDIT_PER_INVITE")
 
     # FastAPI settings
     env: str = Field(default="development", alias="ENV")
