@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Bell, BellOff, ChevronRight, Activity } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Switch } from './ui/switch';
 
 const MOCK_WALLETS = [
   { id: 1, alias: 'Solana Whale #2', address: '0x71c...a4', pnl: '+142.5%', network: 'SOL', isPositive: true, push: true, public_slug: 'crypto-wizard' },
@@ -94,10 +96,9 @@ export const Radar: React.FC<RadarProps> = ({ onTraderSelect }) => {
               <div className="flex items-center gap-2">
                 {wallet.push ? <Bell size={16} className="text-[var(--accent-blue)]" /> : <BellOff size={16} className="text-hint" />}
                 <span className="text-sm">Alerts</span>
-                <label className="switch ml-2" onClick={(e) => e.stopPropagation()}>
-                  <input type="checkbox" checked={wallet.push} onChange={() => togglePush(wallet.id)} />
-                  <span className="slider"></span>
-                </label>
+                <div onClick={(e) => e.stopPropagation()} className="ml-2">
+                  <Switch checked={wallet.push} onCheckedChange={() => togglePush(wallet.id)} />
+                </div>
               </div>
               
               <div 
@@ -117,9 +118,24 @@ export const Radar: React.FC<RadarProps> = ({ onTraderSelect }) => {
         ))}
       </div>
 
+      <AnimatePresence>
       {selectedWallet !== null && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setSelectedWallet(null)}>
-          <div className="w-full max-w-md bg-[var(--secondary-bg)] rounded-t-2xl p-6 shadow-2xl animate-fade-in border-t border-[var(--glass-border)]" onClick={(e) => e.stopPropagation()}>
+        <motion.div 
+          className="fixed inset-0 z-50 flex items-end justify-center" 
+          style={{ background: 'rgba(0,0,0,0.6)' }} 
+          onClick={() => setSelectedWallet(null)}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div 
+            className="w-full max-w-md bg-[var(--secondary-bg)] rounded-t-2xl p-6 shadow-2xl border-t border-[var(--glass-border)]" 
+            onClick={(e) => e.stopPropagation()}
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 25 }}
+          >
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">Recent Transactions</h3>
               <button className="text-hint" onClick={() => setSelectedWallet(null)}>Close</button>
@@ -145,9 +161,10 @@ export const Radar: React.FC<RadarProps> = ({ onTraderSelect }) => {
                 Copy Trade (1-Click)
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 };

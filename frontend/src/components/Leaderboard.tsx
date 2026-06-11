@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { TonConnectButton, useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import { Trophy, Star, ShieldCheck } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { generateSparklinePath } from '../utils/sparkline';
 
 
 
@@ -150,8 +152,8 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onTraderSelect }) => {
             {/* Mock SVG Chart */}
             <div className="w-full h-12 mt-1">
               <svg viewBox="0 0 100 30" className="w-full h-full" preserveAspectRatio="none">
-                <path d={`M0,30 L10,25 L20,28 L30,20 L40,22 L50,15 L60,18 L70,10 L80,5 L90,8 L100,2`} fill="none" stroke="var(--accent-green)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                <path d={`M0,30 L10,25 L20,28 L30,20 L40,22 L50,15 L60,18 L70,10 L80,5 L90,8 L100,2 L100,30 Z`} fill="url(#grad)" opacity="0.2" />
+                <path d={generateSparklinePath(trader.chartData || [0, 10, 5, 20, 15, 30, 25, 40, 30, 50])} fill="none" stroke="var(--accent-green)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                <path d={`${generateSparklinePath(trader.chartData || [0, 10, 5, 20, 15, 30, 25, 40, 30, 50])} L100,30 L0,30 Z`} fill="url(#grad)" opacity="0.2" />
                 <defs>
                   <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
                     <stop offset="0%" stopColor="var(--accent-green)" stopOpacity="1" />
@@ -161,15 +163,37 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onTraderSelect }) => {
               </svg>
             </div>
 
-            <button 
-              className="btn-primary mt-2" 
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSubscribe(trader);
-              }}
-            >
-              Subscribe • {trader.price}
-            </button>
+            <Dialog>
+              <DialogTrigger 
+                className="btn-primary mt-2 w-full" 
+                onClick={(e) => e.stopPropagation()}
+              >
+                Subscribe • {trader.price}
+              </DialogTrigger>
+              <DialogContent className="w-[90vw] max-w-md rounded-2xl bg-[#1c1c1e] border-white/10 text-white p-6 shadow-2xl">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                    <Trophy size={20} className="text-[var(--accent-blue)]" />
+                    Subscribe to {trader.name}
+                  </DialogTitle>
+                  <DialogDescription className="text-white/70 pt-2 text-sm">
+                    You are about to subscribe to {trader.name}'s VIP signals for {trader.price}. This grants you 1-Click and Automated Copy-Trading access for 30 days.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-3 mt-2">
+                  <div className="bg-black/30 p-3 rounded-xl border border-white/5 text-sm flex justify-between">
+                    <span className="text-hint">Total Amount:</span>
+                    <span className="font-bold">{trader.price}</span>
+                  </div>
+                  <button 
+                    className="btn-primary w-full py-3 mt-2 text-base font-bold shadow-lg shadow-blue-500/20"
+                    onClick={() => handleSubscribe(trader)}
+                  >
+                    Confirm & Pay
+                  </button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         ))}
       </div>

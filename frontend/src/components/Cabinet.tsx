@@ -9,7 +9,7 @@ export const Cabinet: React.FC = () => {
   const [share3, setShare3] = useState('');
   const [isCopied, setIsCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isAuthor, setIsAuthor] = useState(true); // Mocking that user is an author for demo purposes
+  const [isAuthor] = useState(true); // Mocking that user is an author for demo purposes
   const [signalToken, setSignalToken] = useState('');
   const [signalType, setSignalType] = useState('BUY');
   const [openSignals, setOpenSignals] = useState<any[]>([]);

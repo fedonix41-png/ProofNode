@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TonConnectUIProvider } from '@tonconnect/ui-react';
 import { Navigation } from './components/Navigation';
 import type { Tab } from './components/Navigation';

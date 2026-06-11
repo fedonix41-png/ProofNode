@@ -39,7 +39,7 @@ export const initMockTelegram = () => {
           isVisible: false,
           show: () => { console.log('Mock: BackButton.show()'); },
           hide: () => { console.log('Mock: BackButton.hide()'); },
-          onClick: (cb: () => void) => { console.log('Mock: BackButton.onClick()'); }
+          onClick: (_cb: () => void) => { console.log('Mock: BackButton.onClick()'); }
         },
         MainButton: {
           text: "CONTINUE",
@@ -49,7 +49,7 @@ export const initMockTelegram = () => {
           isActive: true,
           isProgressVisible: false,
           setText: (text: string) => { console.log(`Mock: MainButton.setText(${text})`); },
-          onClick: (cb: () => void) => { console.log('Mock: MainButton.onClick()'); },
+          onClick: (_cb: () => void) => { console.log('Mock: MainButton.onClick()'); },
           show: () => { console.log('Mock: MainButton.show()'); },
           hide: () => { console.log('Mock: MainButton.hide()'); },
           enable: () => { console.log('Mock: MainButton.enable()'); },
