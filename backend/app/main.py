@@ -14,6 +14,12 @@ from backend.app.schemas import TonWebhookPayload, SolWebhookPayload, EvmWebhook
 from backend.app.routers import traders, subscriptions, wallets, copytrade, users, signals
 from backend.app.services.rpc import rpc_client
 
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastAPIIntegration
+
+if settings.sentry_dsn:
+    sentry_sdk.init(dsn=settings.sentry_dsn, integrations=[FastAPIIntegration()])
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -86,6 +92,10 @@ app.include_router(wallets.router)
 app.include_router(copytrade.router)
 app.include_router(users.router)
 app.include_router(signals.router)
+
+if settings.prometheus_enabled:
+    from prometheus_fastapi_instrumentator import Instrumentator
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 # Health endpoint
 @app.get("/health", status_code=status.HTTP_200_OK)

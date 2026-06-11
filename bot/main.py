@@ -2,9 +2,13 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
+import sentry_sdk
 
 from backend.app.config import settings
 from backend.app.db import db
+
+if settings.sentry_dsn:
+    sentry_sdk.init(dsn=settings.sentry_dsn)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

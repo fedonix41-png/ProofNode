@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "proofnode_gateway"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["gateway:8000"]
+  
+  - job_name: "proofnode_copy_worker"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["copy_worker:8001"]
+
+  - job_name: "proofnode_worker"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["worker:8000"]

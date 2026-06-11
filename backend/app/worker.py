@@ -4,12 +4,23 @@ import logging
 import signal
 from datetime import datetime
 import aio_pika
+import sentry_sdk
+
 from backend.app.config import settings
 from backend.app.db import db
 from backend.app.parser import parse_blockchain_transaction
 
+if settings.sentry_dsn:
+    sentry_sdk.init(dsn=settings.sentry_dsn)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+from prometheus_client import Gauge, start_http_server
+QUEUE_DEPTH = Gauge('rabbitmq_queue_depth', 'Messages in queue', ['queue'])
+
+if settings.prometheus_enabled:
+    start_http_server(8000)
 
 rabbitmq_connection: aio_pika.abc.AbstractConnection | None = None
 rabbitmq_channel: aio_pika.abc.AbstractChannel | None = None
@@ -168,12 +179,25 @@ async def main() -> None:
     # Set prefetch count to limit concurrent message processing
     await rabbitmq_channel.set_qos(prefetch_count=10)
     
+    # Ensure queue exists and bind to it
     queue = await rabbitmq_channel.declare_queue("raw_blockchain_events", durable=True)
     
     logger.info("Worker started. Listening for events...")
     
     # Start consuming messages
     await queue.consume(process_message)
+    
+    async def update_metrics():
+        while True:
+            try:
+                # Re-declare passive to get current message count
+                q = await rabbitmq_channel.declare_queue("raw_blockchain_events", passive=True)
+                QUEUE_DEPTH.labels(queue="raw_blockchain_events").set(q.declaration_result.message_count)
+            except Exception as e:
+                logger.error(f"Failed to update queue metrics: {e}")
+            await asyncio.sleep(5)
+            
+    metrics_task = asyncio.create_task(update_metrics()) if settings.prometheus_enabled else None
     
     # Setup graceful shutdown handlers
     loop = asyncio.get_running_loop()
@@ -189,6 +213,8 @@ async def main() -> None:
     await stop_event.wait()
     
     # Clean up
+    if metrics_task:
+        metrics_task.cancel()
     await rabbitmq_connection.close()
     await db.disconnect()
     logger.info("Worker shut down successfully.")

@@ -23,3 +23,13 @@ httpx>=0.27.0
 psycopg2-binary>=2.9.9
 web3>=6.0.0
 httpx
+
+# Production & Observability
+boto3>=1.28.0
+hvac>=2.0.0
+sentry-sdk[fastapi]>=1.40.0
+prometheus-fastapi-instrumentator>=7.0.0
+
+# Performance Testing & Chaos Engineering
+locust>=2.20.0
+toxiproxy-python>=0.1.1

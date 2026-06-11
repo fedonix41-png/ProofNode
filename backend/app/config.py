@@ -54,7 +54,15 @@ class Settings(BaseSettings):
     channel_id: int = Field(default=-10012345678, alias="CHANNEL_ID")
 
     # KMS Encryption settings
+    kms_provider: str = Field(default="local", alias="KMS_PROVIDER")
     kms_master_key: str = Field(default="test_kms_master_key_dev_placeholder", alias="KMS_MASTER_KEY")
+    aws_kms_key_id: str = Field(default="mock_aws_kms_key", alias="AWS_KMS_KEY_ID")
+    vault_url: str = Field(default="http://localhost:8200", alias="VAULT_URL")
+    vault_token: str = Field(default="mock_vault_token", alias="VAULT_TOKEN")
+
+    # Observability
+    sentry_dsn: str | None = Field(default=None, alias="SENTRY_DSN")
+    prometheus_enabled: bool = Field(default=False, alias="PROMETHEUS_ENABLED")
 
     model_config = SettingsConfigDict(
         env_file=".env",

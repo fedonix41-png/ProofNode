@@ -5,18 +5,29 @@ import signal
 from decimal import Decimal
 import aio_pika
 from uuid import UUID
+import sentry_sdk
 
 from backend.app.config import settings
 from backend.app.db import db
 from backend.app.services.kms import kms_service
 from backend.app.services.dex import dex_service
 
+if settings.sentry_dsn:
+    sentry_sdk.init(dsn=settings.sentry_dsn)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+from prometheus_client import Histogram, start_http_server
+TRADE_LATENCY = Histogram('copy_trade_latency_seconds', 'Time to execute copy trade')
 
 rabbitmq_connection: aio_pika.abc.AbstractConnection | None = None
 rabbitmq_channel: aio_pika.abc.AbstractChannel | None = None
 
+if settings.prometheus_enabled:
+    start_http_server(8001)
+
+@TRADE_LATENCY.time()
 async def execute_automated_trade(conn, job: dict) -> None:
     user_id = job["user_id"]
     proxy_wallet_id = UUID(job["proxy_wallet_id"])
