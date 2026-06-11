@@ -78,7 +78,9 @@ async def run_bot():
         logger.warning("Mock token detected. Running in mock simulator mode...")
         # Start the scheduler background loop in simulated mode
         from bot.scheduler import start_scheduler
+        from bot.consumer import start_rabbitmq_consumer, stop_rabbitmq_consumer
         scheduler_task = asyncio.create_task(start_scheduler(bot=None))
+        consumer_conn = await start_rabbitmq_consumer(bot=None)
         
         try:
             while True:
@@ -87,6 +89,7 @@ async def run_bot():
             logger.info("Simulator loop stopped.")
         finally:
             scheduler_task.cancel()
+            await stop_rabbitmq_consumer(consumer_conn)
             await db.disconnect()
             logger.info("Database connection closed.")
         return
@@ -96,13 +99,17 @@ async def run_bot():
     
     # Start the scheduler background loop
     from bot.scheduler import start_scheduler
+    from bot.consumer import start_rabbitmq_consumer, stop_rabbitmq_consumer
+    
     scheduler_task = asyncio.create_task(start_scheduler(bot=bot))
+    consumer_conn = await start_rabbitmq_consumer(bot=bot)
     
     try:
         logger.info("Starting Telegram Bot long-polling...")
         await dp.start_polling(bot)
     finally:
         scheduler_task.cancel()
+        await stop_rabbitmq_consumer(consumer_conn)
         await bot.session.close()
         await db.disconnect()
         logger.info("Bot components clean shutdown complete.")

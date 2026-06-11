@@ -1,7 +1,7 @@
 {
-  "plan": ".omo/plans/proofnode_phase4.md",
+  "plan": ".omo/plans/proofnode_phase5.md",
   "active_checkbox": "DONE",
   "subagents": [],
   "artifacts": [],
-  "cleanup": ["Killed Vite dev server on port 3000"]
+  "cleanup": ["docker compose down -v completed"]
 }

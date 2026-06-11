@@ -166,9 +166,9 @@ async def main() -> None:
     rabbitmq_channel = await rabbitmq_connection.channel()
     
     # Set prefetch count to limit concurrent message processing
-    await channel.set_qos(prefetch_count=10)
+    await rabbitmq_channel.set_qos(prefetch_count=10)
     
-    queue = await channel.declare_queue("raw_blockchain_events", durable=True)
+    queue = await rabbitmq_channel.declare_queue("raw_blockchain_events", durable=True)
     
     logger.info("Worker started. Listening for events...")
     
