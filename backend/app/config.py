@@ -23,6 +23,17 @@ class Settings(BaseSettings):
     webhook_secret_ton: str = Field(default="test_ton_secret", alias="WEBHOOK_SECRET_TON")
     webhook_secret_sol: str = Field(default="test_sol_secret", alias="WEBHOOK_SECRET_SOL")
     webhook_secret_evm: str = Field(default="test_evm_secret", alias="WEBHOOK_SECRET_EVM")
+    alchemy_webhook_secret: str = Field(default="alchemy_test_secret", alias="ALCHEMY_WEBHOOK_SECRET")
+    helius_webhook_secret: str = Field(default="helius_test_secret", alias="HELIUS_WEBHOOK_SECRET")
+    tonapi_webhook_secret: str = Field(default="tonapi_test_secret", alias="TONAPI_WEBHOOK_SECRET")
+
+    # RPC URLs
+    solana_rpc_url: str = Field(default="https://api.mainnet-beta.solana.com", alias="SOLANA_RPC_URL")
+    base_rpc_url: str = Field(default="https://mainnet.base.org", alias="BASE_RPC_URL")
+    ton_rpc_url: str = Field(default="https://toncenter.com/api/v2/jsonRPC", alias="TON_RPC_URL")
+
+    # Platform
+    platform_treasury_address: str = Field(default="EQ_PLATFORM_TREASURY_ADDRESS", alias="PLATFORM_TREASURY_ADDRESS")
 
     # FastAPI settings
     env: str = Field(default="development", alias="ENV")

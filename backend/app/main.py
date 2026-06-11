@@ -1,7 +1,9 @@
 import logging
 import json
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Header, status
+import hmac
+import hashlib
+from fastapi import FastAPI, HTTPException, Header, status, Request
 from fastapi.responses import JSONResponse
 import aio_pika
 import redis.asyncio as aioredis
@@ -10,6 +12,7 @@ from backend.app.config import settings
 from backend.app.db import db
 from backend.app.schemas import TonWebhookPayload, SolWebhookPayload, EvmWebhookPayload
 from backend.app.routers import traders, subscriptions, wallets, copytrade, users, signals
+from backend.app.services.rpc import rpc_client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -67,6 +70,7 @@ async def lifespan(app: FastAPI):
     if redis_client:
         await redis_client.aclose()
         logger.info("Redis client closed.")
+    await rpc_client.close()
     await db.disconnect()
 
 app = FastAPI(
@@ -150,12 +154,15 @@ async def enqueue_raw_event(blockchain: str, tx_hash: str, payload: dict) -> Non
 @app.post("/gateway/ton", status_code=status.HTTP_202_ACCEPTED)
 async def ingest_ton_webhook(
     payload: TonWebhookPayload,
+    authorization: str = Header(None, alias="Authorization"),
     x_tonapi_signature: str = Header(None, alias="X-Tonapi-Signature")
 ):
     # Signature checking
     if settings.env != "testing":
-        if not x_tonapi_signature or x_tonapi_signature != settings.webhook_secret_ton:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid signature")
+        valid_auth = authorization == f"Bearer {settings.tonapi_webhook_secret}"
+        valid_sig = x_tonapi_signature == settings.tonapi_webhook_secret
+        if not (valid_auth or valid_sig):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature")
 
     # Deduplication
     if await is_duplicate_transaction(payload.tx_hash):
@@ -169,12 +176,12 @@ async def ingest_ton_webhook(
 @app.post("/gateway/sol", status_code=status.HTTP_202_ACCEPTED)
 async def ingest_sol_webhook(
     payload: SolWebhookPayload,
-    x_helius_signature: str = Header(None, alias="X-Helius-Signature")
+    authorization: str = Header(None, alias="Authorization")
 ):
     # Signature checking
     if settings.env != "testing":
-        if not x_helius_signature or x_helius_signature != settings.webhook_secret_sol:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid signature")
+        if not authorization or authorization != settings.helius_webhook_secret:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature")
 
     # Deduplication
     if await is_duplicate_transaction(payload.tx_hash):
@@ -187,13 +194,21 @@ async def ingest_sol_webhook(
 
 @app.post("/gateway/evm", status_code=status.HTTP_202_ACCEPTED)
 async def ingest_evm_webhook(
+    request: Request,
     payload: EvmWebhookPayload,
     x_alchemy_signature: str = Header(None, alias="X-Alchemy-Signature")
 ):
     # Signature checking
     if settings.env != "testing":
-        if not x_alchemy_signature or x_alchemy_signature != settings.webhook_secret_evm:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid signature")
+        if not x_alchemy_signature:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing signature")
+            
+        body = await request.body()
+        secret = settings.alchemy_webhook_secret.encode("utf-8")
+        computed_sig = hmac.new(secret, body, hashlib.sha256).hexdigest()
+        
+        if not hmac.compare_digest(computed_sig, x_alchemy_signature):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature")
 
     # Deduplication
     if await is_duplicate_transaction(payload.tx_hash):

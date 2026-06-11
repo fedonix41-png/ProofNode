@@ -84,13 +84,13 @@ To close the gap between current implementation and the original ТЗ:
 
 ## TODOs
 
-- [ ] **Dependencies and Configuration**
+- [x] **Dependencies and Configuration**
   - Add `web3>=6.0.0` and `httpx` to `backend/requirements.txt`.
   - Install: `uv pip install -r backend/requirements.txt`.
   - Define webhook secrets and RPC URLs in `backend/app/config.py`.
   - *Commit guidance*: "infra: add RPC client dependencies and security configuration"
 
-- [ ] **Webhook Signature Verification**
+- [x] **Webhook Signature Verification**
   - Implement in `backend/app/main.py`:
     - Alchemy: HMAC-SHA256 of request body, compare to `x-alchemy-signature` header (lowercase hex).
     - Helius: Compare `Authorization` header to secret.
@@ -98,7 +98,7 @@ To close the gap between current implementation and the original ТЗ:
   - Write unit tests for each verification function.
   - *Commit guidance*: "feat: implement cryptographic webhook signature validation"
 
-- [ ] **RPC Client Pool**
+- [x] **RPC Client Pool**
   - Create `backend/app/services/rpc.py` with async HTTP clients.
   - Implement `get_wallet_balance(blockchain, address)`.
   - Implement `get_token_price(blockchain, token_address)`.
@@ -106,13 +106,13 @@ To close the gap between current implementation and the original ТЗ:
   - Add connection pooling and timeout handling.
   - *Commit guidance*: "feat: add async RPC client pool for blockchain queries"
 
-- [ ] **On-chain Payment Verification**
+- [x] **On-chain Payment Verification**
   - Update `backend/app/routers/subscriptions.py`:
     - Replace mock verification with RPC `verify_transaction()`.
     - Calculate 5% commission, log to `subscription_payments` table.
   - *Commit guidance*: "feat: connect subscription payment verification to live RPC"
 
-- [ ] **Freemium Limits**
+- [x] **Freemium Limits**
   - Update `backend/app/routers/wallets.py`:
     - Check `users.is_premium` before allowing wallet creation.
     - Reject with 402 if limit exceeded (3 for free, unlimited for premium).
@@ -121,19 +121,19 @@ To close the gap between current implementation and the original ТЗ:
     - Queue to `delayed_notifications` for free users (10-minute delay).
   - *Commit guidance*: "feat: implement freemium wallet limits and notification delays"
 
-- [ ] **Signal CRM - Backend**
+- [x] **Signal CRM - Backend**
   - Add `POST /traders/me/signals`: accept token_address, direction. Capture current price via RPC. Create signal record.
   - Add `POST /traders/me/signals/{id}/close`: capture exit price, calculate PnL, update signal status.
   - Add `GET /traders/{slug}`: return public profile data (ROI, winrate, recent signals).
   - *Commit guidance*: "feat: add signal creation and closing endpoints for trader CRM"
 
-- [ ] **Signal CRM - Frontend**
+- [x] **Signal CRM - Frontend**
   - Update `Cabinet.tsx` with "Author Tools" section:
     - Form: token address input, BUY/SELL toggle, "Open Signal" button.
     - List of open signals with "Close" button.
   - *Commit guidance*: "feat: add signal management UI to trader cabinet"
 
-- [ ] **Public Trader Profiles**
+- [x] **Public Trader Profiles**
   - Create `TraderProfile.tsx` component:
     - ROI chart (SVG sparkline or canvas).
     - Winrate badge, cumulative PnL.
@@ -149,7 +149,7 @@ To close the gap between current implementation and the original ТЗ:
   - Add backend filter support in `GET /traders` endpoint.
   - *Commit guidance*: "feat: add blockchain and winrate filters to marketplace"
 
-- [ ] **Integration Tests**
+- [x] **Integration Tests**
   - Create `tests/test_crm_features.py`:
     - Test signal creation with mocked price capture.
     - Test PnL calculation on close.

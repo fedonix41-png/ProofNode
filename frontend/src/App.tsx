@@ -5,6 +5,7 @@ import type { Tab } from './components/Navigation';
 import { Radar } from './components/Radar';
 import { Leaderboard } from './components/Leaderboard';
 import { Cabinet } from './components/Cabinet';
+import { TraderProfile } from './components/TraderProfile';
 import { initMockTelegram } from './utils/mockTelegram';
 
 // Ensure mock telegram is initialized if running outside TMA
@@ -12,6 +13,7 @@ initMockTelegram();
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('radar');
+  const [selectedTraderSlug, setSelectedTraderSlug] = useState<string | null>(null);
 
   useEffect(() => {
     // Tell Telegram WebApp we are ready
@@ -46,12 +48,27 @@ function App() {
     <TonConnectUIProvider manifestUrl="https://raw.githubusercontent.com/ton-community/tutorials/main/03-client/test/public/tonconnect-manifest.json">
       <div className="app-container">
         <main className="content-area">
-          {activeTab === 'radar' && <Radar />}
-          {activeTab === 'leaderboard' && <Leaderboard />}
-          {activeTab === 'cabinet' && <Cabinet />}
+          {selectedTraderSlug ? (
+            <TraderProfile 
+              slug={selectedTraderSlug} 
+              onBack={() => setSelectedTraderSlug(null)} 
+            />
+          ) : (
+            <>
+              {activeTab === 'radar' && <Radar onTraderSelect={setSelectedTraderSlug} />}
+              {activeTab === 'leaderboard' && <Leaderboard onTraderSelect={setSelectedTraderSlug} />}
+              {activeTab === 'cabinet' && <Cabinet />}
+            </>
+          )}
         </main>
         
-        <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+        <Navigation 
+          activeTab={activeTab} 
+          setActiveTab={(tab) => {
+            setActiveTab(tab);
+            setSelectedTraderSlug(null);
+          }} 
+        />
       </div>
     </TonConnectUIProvider>
   );

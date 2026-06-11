@@ -178,3 +178,17 @@ CREATE TABLE IF NOT EXISTS copy_trade_executions (
     executed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+
+CREATE TABLE IF NOT EXISTS signals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    trader_profile_id UUID NOT NULL REFERENCES trader_profiles(id) ON DELETE CASCADE,
+    blockchain VARCHAR(10) NOT NULL,
+    token_address VARCHAR(256) NOT NULL,
+    direction VARCHAR(4) NOT NULL CHECK (direction IN ('BUY', 'SELL')),
+    entry_price NUMERIC,
+    exit_price NUMERIC,
+    pnl_percent NUMERIC,
+    status VARCHAR(20) DEFAULT 'OPEN',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    closed_at TIMESTAMP WITH TIME ZONE
+);

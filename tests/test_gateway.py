@@ -56,3 +56,48 @@ async def test_rabbitmq_message_content(postgres_server, rabbitmq_server, redis_
         assert body["tx_hash"] == "test_ton_tx_hash_1"
         assert body["payload"]["wallet_address"] == "EQCtestwalletaddress12345"
         assert "trace_id_abc" in body["payload"]["trace_id"]
+
+def test_webhook_signatures(client, monkeypatch):
+    import hmac
+    import hashlib
+    from backend.app.config import settings
+    
+    # Enable signature checking for this test
+    monkeypatch.setattr(settings, "env", "production")
+    
+    # 1. Test Alchemy (EVM)
+    payload = {"tx_hash": "test_alchemy_1", "wallet_address": "0x123", "time": "2026-06-11T00:00:00Z", "payload": "{}", "block_number": 100}
+    body_bytes = json.dumps(payload).encode("utf-8")
+    secret = settings.alchemy_webhook_secret.encode("utf-8")
+    valid_sig = hmac.new(secret, body_bytes, hashlib.sha256).hexdigest()
+    
+    # Invalid sig
+    response = client.post("/gateway/evm", json=payload, headers={"X-Alchemy-Signature": "invalid"})
+    assert response.status_code == 401
+    
+    # Valid sig
+    # Have to bypass redis deduplication somehow, or it will just say 202
+    response = client.post("/gateway/evm", content=body_bytes, headers={"X-Alchemy-Signature": valid_sig, "Content-Type": "application/json"})
+    assert response.status_code == 202
+
+    # 2. Test Helius (SOL)
+    payload_sol = {"tx_hash": "test_helius_1", "wallet_address": "sol123", "time": "2026-06-11T00:00:00Z", "payload": "{}", "slot": 100}
+    
+    # Invalid sig
+    response = client.post("/gateway/sol", json=payload_sol, headers={"Authorization": "invalid"})
+    assert response.status_code == 401
+    
+    # Valid sig
+    response = client.post("/gateway/sol", json=payload_sol, headers={"Authorization": settings.helius_webhook_secret})
+    assert response.status_code == 202
+
+    # 3. Test TonAPI (TON)
+    payload_ton = {"tx_hash": "test_ton_1", "wallet_address": "ton123", "time": "2026-06-11T00:00:00Z", "payload": "{}", "logical_time": 100, "trace_id": "abc"}
+    
+    # Invalid sig
+    response = client.post("/gateway/ton", json=payload_ton, headers={"Authorization": "Bearer invalid"})
+    assert response.status_code == 401
+    
+    # Valid sig (Auth header)
+    response = client.post("/gateway/ton", json=payload_ton, headers={"Authorization": f"Bearer {settings.tonapi_webhook_secret}"})
+    assert response.status_code == 202

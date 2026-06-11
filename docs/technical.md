@@ -18,9 +18,13 @@
 | `BOT_TOKEN` | Telegram Bot API token | Yes |
 | `CHANNEL_ID` | Telegram channel ID for subscriptions | Yes |
 | `KMS_MASTER_KEY` | Fernet key for proxy wallet encryption | Yes |
-| `WEBHOOK_SECRET_TON` | TonAPI webhook signature | Yes |
-| `WEBHOOK_SECRET_SOL` | Helius webhook signature | Yes |
-| `WEBHOOK_SECRET_EVM` | Alchemy webhook signature | Yes |
+| `ALCHEMY_WEBHOOK_SECRET` | Alchemy webhook signature | Yes |
+| `HELIUS_WEBHOOK_SECRET` | Helius webhook signature | Yes |
+| `TONAPI_WEBHOOK_SECRET` | TonAPI webhook signature | Yes |
+| `SOLANA_RPC_URL` | Solana RPC endpoint for queries | Yes |
+| `BASE_RPC_URL` | Base RPC endpoint for queries | Yes |
+| `TON_RPC_URL` | TON RPC endpoint for queries | Yes |
+| `PLATFORM_TREASURY_ADDRESS` | Address receiving 5% platform commssion | Yes |
 | `ENV` | Environment (`development`/`production`/`testing`) | No |
 
 ---
@@ -152,6 +156,20 @@ Retention: 90 days. Compression after 14 days.
 | `address` | VARCHAR(256) | Wallet public address |
 | `encrypted_private_key` | TEXT | KMS-encrypted private key |
 | `balance` | NUMERIC(40,18) | Current balance |
+
+### `signals`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key |
+| `trader_profile_id` | UUID | FK to `trader_profiles` |
+| `blockchain` | VARCHAR(10) | Chain identifier (`TON`, `BASE`, `SOL`) |
+| `token_address` | VARCHAR(256) | Token contract address |
+| `direction` | VARCHAR(4) | `BUY` or `SELL` |
+| `entry_price` | NUMERIC | Captured Entry price via RPC |
+| `exit_price` | NUMERIC | Captured Exit price via RPC |
+| `pnl_percent` | NUMERIC | Calculated PnL upon close |
+| `status` | VARCHAR(20) | `OPEN` or `CLOSED` |
 
 ---
 

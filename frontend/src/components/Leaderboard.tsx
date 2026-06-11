@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TonConnectButton, useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import { Trophy, Star, ShieldCheck } from 'lucide-react';
 
 const TRADERS = [
-  { id: 1, name: 'Crypto Wizard', badge: 'Pro', roi: '+842%', winrate: '78%', followers: 1204, price: '10 TON' },
-  { id: 2, name: 'Whale Tracker', badge: 'Elite', roi: '+450%', winrate: '65%', followers: 890, price: '5 TON' },
-  { id: 3, name: 'Sniper Bot', badge: 'Verified', roi: '+310%', winrate: '82%', followers: 432, price: 'FREE' }
+  { id: 1, name: 'Crypto Wizard', badge: 'Pro', roi: '+842%', winrate: '78%', followers: 1204, price: '10 TON', public_slug: 'crypto-wizard' },
+  { id: 2, name: 'Whale Tracker', badge: 'Elite', roi: '+450%', winrate: '65%', followers: 890, price: '5 TON', public_slug: 'whale-tracker' },
+  { id: 3, name: 'Sniper Bot', badge: 'Verified', roi: '+310%', winrate: '82%', followers: 432, price: 'FREE', public_slug: 'sniper-bot' }
 ];
 
-export const Leaderboard: React.FC = () => {
+interface LeaderboardProps {
+  onTraderSelect?: (slug: string) => void;
+}
+
+export const Leaderboard: React.FC<LeaderboardProps> = ({ onTraderSelect }) => {
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
 
@@ -70,7 +74,11 @@ export const Leaderboard: React.FC = () => {
 
       <div className="flex flex-col gap-3">
         {TRADERS.map((trader, index) => (
-          <div key={trader.id} className="glass-card flex flex-col gap-3 relative">
+          <div 
+            key={trader.id} 
+            className="glass-card flex flex-col gap-3 relative cursor-pointer hover:bg-white/5 transition-colors"
+            onClick={() => onTraderSelect && onTraderSelect(trader.public_slug)}
+          >
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center font-bold border border-white/10 shadow-inner">

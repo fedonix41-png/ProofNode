@@ -11,6 +11,8 @@ export const Cabinet: React.FC = () => {
   const [isAuthor, setIsAuthor] = useState(true); // Mocking that user is an author for demo purposes
   const [signalToken, setSignalToken] = useState('');
   const [signalType, setSignalType] = useState('BUY');
+  const [openSignals, setOpenSignals] = useState<any[]>([]);
+  const MOCK_TRADER_ID = '00000000-0000-0000-0000-000000000000';
 
   const handleSetupCopying = async () => {
     if (!pkInput) return;
@@ -158,25 +160,58 @@ export const Cabinet: React.FC = () => {
               disabled={!signalToken}
               onClick={async () => {
                 try {
-                  await fetch('/api/signals', {
+                  const resp = await fetch(`/api/traders/${MOCK_TRADER_ID}/signals`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      trader_profile_id: '00000000-0000-0000-0000-000000000000', // Mock UUID
                       token_address: signalToken,
                       blockchain: 'TON',
-                      type: signalType
+                      direction: signalType
                     })
                   });
+                  if (!resp.ok) throw new Error('Failed to create signal');
+                  const signal = await resp.json();
+                  setOpenSignals([signal, ...openSignals]);
                   alert('Signal broadcasted successfully!');
                   setSignalToken('');
-                } catch (e) {
-                  alert('Failed to broadcast signal');
+                } catch (e: any) {
+                  alert('Failed to broadcast signal: ' + e.message);
                 }
               }}
             >
               Publish Signal
             </button>
+            
+            {openSignals.length > 0 && (
+              <div className="mt-4 flex flex-col gap-2">
+                <h4 className="text-sm font-semibold text-hint">Open Signals</h4>
+                {openSignals.map((signal) => (
+                  <div key={signal.id} className="flex items-center justify-between p-2 bg-black/30 rounded border border-white/5 text-sm">
+                    <div>
+                      <span className={signal.direction === 'BUY' ? 'text-[var(--accent-green)] font-bold' : 'text-[var(--accent-red)] font-bold'}>{signal.direction}</span>
+                      <span className="ml-2 font-mono text-xs">{signal.token_address.substring(0,8)}...</span>
+                    </div>
+                    <button 
+                      className="px-2 py-1 bg-white/10 rounded hover:bg-white/20 text-xs"
+                      onClick={async () => {
+                        try {
+                          const resp = await fetch(`/api/traders/${MOCK_TRADER_ID}/signals/${signal.id}/close`, {
+                            method: 'POST'
+                          });
+                          if (!resp.ok) throw new Error('Failed to close');
+                          setOpenSignals(openSignals.filter(s => s.id !== signal.id));
+                          alert('Signal closed!');
+                        } catch(e: any) {
+                          alert('Error closing signal: ' + e.message);
+                        }
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
         

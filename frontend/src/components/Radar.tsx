@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import { Search, Bell, BellOff, ChevronRight, Activity } from 'lucide-react';
 
 const MOCK_WALLETS = [
-  { id: 1, alias: 'Solana Whale #2', address: '0x71c...a4', pnl: '+142.5%', network: 'SOL', isPositive: true, push: true },
-  { id: 2, alias: 'Base Degen Alpha', address: '0x88b...1f', pnl: '-12.4%', network: 'BASE', isPositive: false, push: false },
-  { id: 3, alias: 'TON Market Maker', address: 'EQ_19...z8', pnl: '+34.2%', network: 'TON', isPositive: true, push: true }
+  { id: 1, alias: 'Solana Whale #2', address: '0x71c...a4', pnl: '+142.5%', network: 'SOL', isPositive: true, push: true, public_slug: 'crypto-wizard' },
+  { id: 2, alias: 'Base Degen Alpha', address: '0x88b...1f', pnl: '-12.4%', network: 'BASE', isPositive: false, push: false, public_slug: 'whale-tracker' },
+  { id: 3, alias: 'TON Market Maker', address: 'EQ_19...z8', pnl: '+34.2%', network: 'TON', isPositive: true, push: true, public_slug: 'sniper-bot' }
 ];
 
-export const Radar: React.FC = () => {
+interface RadarProps {
+  onTraderSelect?: (slug: string) => void;
+}
+
+export const Radar: React.FC<RadarProps> = ({ onTraderSelect }) => {
   const [wallets, setWallets] = useState(MOCK_WALLETS);
   const [selectedWallet, setSelectedWallet] = useState<number | null>(null);
   const [activeCategory, setActiveCategory] = useState('All');
@@ -86,7 +90,15 @@ export const Radar: React.FC = () => {
                 </label>
               </div>
               
-              <div className="flex items-center text-hint text-sm gap-1 hover:text-white transition-colors cursor-pointer">
+              <div 
+                className="flex items-center text-hint text-sm gap-1 hover:text-white transition-colors cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onTraderSelect && wallet.public_slug) {
+                    onTraderSelect(wallet.public_slug);
+                  }
+                }}
+              >
                 <span>View Details</span>
                 <ChevronRight size={16} />
               </div>

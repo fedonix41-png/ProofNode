@@ -9,6 +9,7 @@ from aiogram import Bot
 
 from backend.app.config import settings
 from backend.app.db import db
+from backend.app.services.rpc import rpc_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/subscriptions", tags=["subscriptions"])
@@ -82,9 +83,21 @@ async def verify_payment(payload: VerificationRequest):
         if settings.env == "testing" or payload.tx_hash.startswith("mock"):
             payment_verified = True
         else:
-            # Simulated block RPC check (e.g. check if tx_hash contains confirm and matching transaction value)
-            payment_verified = True  # Auto-confirm in Sandbox / preliminary stages
-            logger.info(f"Simulating TON RPC block check for tx: {payload.tx_hash}")
+            # Map currency to blockchain
+            currency_to_chain = {
+                "TON": "TON",
+                "SOL": "SOL",
+                "BASE": "BASE",
+                "USDT": "TON" # default to TON for USDT in this context, or maybe need more explicit mapping
+            }
+            blockchain = currency_to_chain.get(tariff["currency"], "TON")
+            expected_amount = tariff["price_crypto"] if tariff["price_crypto"] else Decimal(0)
+            expected_receiver = settings.platform_treasury_address
+            
+            logger.info(f"Using RPC to verify {blockchain} tx: {payload.tx_hash}")
+            payment_verified = await rpc_client.verify_transaction(
+                blockchain, payload.tx_hash, expected_receiver, expected_amount
+            )
 
         if not payment_verified:
             raise HTTPException(

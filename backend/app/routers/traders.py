@@ -7,6 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from backend.app.db import db
+from backend.app.services.rpc import rpc_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/traders", tags=["traders"])
@@ -33,6 +34,11 @@ class TariffCreate(BaseModel):
     price_stars: Optional[int] = Field(None, ge=0)
     price_crypto: Optional[Decimal] = Field(None, ge=0)
     currency: str = Field("TON", max_length=10)
+
+class SignalCreateRequest(BaseModel):
+    token_address: str = Field(..., max_length=256)
+    blockchain: str = Field(..., pattern="^(TON|BASE|SOL)$")
+    direction: str = Field(..., pattern="^(BUY|SELL)$")
 
 # Endpoints
 @router.post("/profile", status_code=status.HTTP_201_CREATED)
@@ -135,3 +141,99 @@ async def create_tariff(payload: TariffCreate):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to create tariff: {e}"
             )
+
+@router.get("/{slug}", status_code=status.HTTP_200_OK)
+async def get_trader_by_slug(slug: str):
+    async for conn in db.get_connection():
+        row = await conn.fetchrow(
+            """
+            SELECT id, admin_id, title, description, category, is_verified, public_slug, created_at 
+            FROM trader_profiles WHERE public_slug = $1
+            """,
+            slug
+        )
+        if not row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trader not found")
+            
+        trader_dict = dict(row)
+        
+        # Get recent signals
+        signals = await conn.fetch(
+            "SELECT id, blockchain, token_address, direction, entry_price, exit_price, pnl_percent, status, created_at, closed_at FROM signals WHERE trader_profile_id = $1 ORDER BY created_at DESC LIMIT 10",
+            trader_dict["id"]
+        )
+        trader_dict["recent_signals"] = [dict(s) for s in signals]
+        
+        # Mock stats (in a real app, query trader_pnl_history)
+        trader_dict["stats"] = {
+            "cumulative_roi": "15.0",
+            "winrate": "65.0",
+            "drawdown": "10.0"
+        }
+        
+        return trader_dict
+
+@router.post("/{id}/signals", status_code=status.HTTP_201_CREATED)
+async def create_signal(id: UUID, payload: SignalCreateRequest):
+    async for conn in db.get_connection():
+        # Check if profile exists
+        profile = await conn.fetchrow("SELECT id FROM trader_profiles WHERE id = $1", id)
+        if not profile:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trader profile not found")
+            
+        # Capture current price via RPC
+        entry_price = await rpc_client.get_token_price(payload.blockchain, payload.token_address)
+        
+        try:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO signals (trader_profile_id, blockchain, token_address, direction, entry_price, status)
+                VALUES ($1, $2, $3, $4, $5, 'OPEN')
+                RETURNING id, trader_profile_id, blockchain, token_address, direction, entry_price, status, created_at
+                """,
+                id, payload.blockchain, payload.token_address, payload.direction, entry_price
+            )
+            return dict(row)
+        except Exception as e:
+            logger.error(f"Error creating signal: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to create signal: {e}"
+            )
+
+@router.post("/{id}/signals/{signal_id}/close", status_code=status.HTTP_200_OK)
+async def close_signal(id: UUID, signal_id: UUID):
+    async for conn in db.get_connection():
+        signal = await conn.fetchrow(
+            "SELECT id, blockchain, token_address, direction, entry_price, status FROM signals WHERE id = $1 AND trader_profile_id = $2",
+            signal_id, id
+        )
+        if not signal:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Signal not found")
+            
+        if signal["status"] != "OPEN":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Signal is already closed")
+            
+        # Capture exit price
+        exit_price = await rpc_client.get_token_price(signal["blockchain"], signal["token_address"])
+        
+        pnl_percent = Decimal(0)
+        if signal["entry_price"] and exit_price:
+            entry = Decimal(signal["entry_price"])
+            exit_p = Decimal(exit_price)
+            if signal["direction"] == "BUY":
+                pnl_percent = ((exit_p - entry) / entry) * Decimal(100)
+            else:
+                pnl_percent = ((entry - exit_p) / entry) * Decimal(100)
+                
+        now = datetime.now()
+        row = await conn.fetchrow(
+            """
+            UPDATE signals 
+            SET status = 'CLOSED', exit_price = $1, pnl_percent = $2, closed_at = $3
+            WHERE id = $4
+            RETURNING id, status, exit_price, pnl_percent, closed_at
+            """,
+            exit_price, pnl_percent, now, signal_id
+        )
+        return dict(row)
