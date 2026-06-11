@@ -59,6 +59,16 @@ export const Radar: React.FC<RadarProps> = ({ onTraderSelect }) => {
         ))}
       </div>
 
+      <div className="bg-gradient-to-r from-blue-600/20 to-purple-500/20 border border-[var(--accent-blue)]/30 rounded-xl p-3 flex justify-between items-center mt-1">
+        <div>
+          <h4 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">ProofNode Premium</h4>
+          <p className="text-xs text-white/70">Unlimited wallets & instant alerts</p>
+        </div>
+        <button className="px-3 py-1.5 bg-[var(--accent-blue)] text-white text-xs font-bold rounded-lg shadow-lg shadow-blue-500/20">
+          Upgrade
+        </button>
+      </div>
+
       <div className="flex flex-col gap-3 mt-1">
         {wallets.map((wallet) => (
           <div key={wallet.id} className="glass-card flex flex-col gap-3" onClick={() => setSelectedWallet(wallet.id)}>

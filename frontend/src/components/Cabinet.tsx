@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Key, Settings, Zap, Copy, CheckCircle2 } from 'lucide-react';
 import { splitKey } from '../utils/sss';
 import { Referrals } from './Referrals';
+import { PremiumUpsell } from './PremiumUpsell';
 
 export const Cabinet: React.FC = () => {
   const [pkInput, setPkInput] = useState('');
@@ -220,6 +221,7 @@ export const Cabinet: React.FC = () => {
       </div>
 
       <Referrals />
+      <PremiumUpsell />
     </div>
   );
 };
