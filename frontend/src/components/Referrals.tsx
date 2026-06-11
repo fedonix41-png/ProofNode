@@ -5,6 +5,7 @@ interface ReferralStats {
   user_id: number;
   referral_code: string;
   total_referred: number;
+  referral_credits: number;
 }
 
 export const Referrals: React.FC = () => {
@@ -32,8 +33,8 @@ export const Referrals: React.FC = () => {
 
   const getReferralLink = () => {
     if (!stats) return '';
-    const botUsername = 'proofnode_bot'; // Should come from config
-    return `https://t.me/${botUsername}/app?startapp=${stats.referral_code}`;
+    const botUsername = 'AlphaHubBot'; // Or whatever is configured
+    return `https://t.me/${botUsername}/app?startapp=ref_${stats.referral_code}`;
   };
 
   const handleCopy = () => {
@@ -60,9 +61,15 @@ export const Referrals: React.FC = () => {
         <div className="text-sm text-hint">Loading referral stats...</div>
       ) : stats ? (
         <>
-          <div className="flex justify-between items-center bg-black/20 p-3 rounded-lg border border-white/5">
-            <span className="text-sm text-hint">Friends Invited</span>
-            <span className="text-xl font-bold">{stats.total_referred}</span>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col bg-black/20 p-3 rounded-lg border border-white/5">
+              <span className="text-sm text-hint">Friends Invited</span>
+              <span className="text-xl font-bold">{stats.total_referred}</span>
+            </div>
+            <div className="flex flex-col bg-black/20 p-3 rounded-lg border border-white/5">
+              <span className="text-sm text-hint">Bonus Wallet Slots</span>
+              <span className="text-xl font-bold text-[var(--accent-green)]">+{stats.referral_credits * 2}</span>
+            </div>
           </div>
           
           <div className="mt-2">

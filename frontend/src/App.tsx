@@ -33,6 +33,12 @@ function App() {
         if (startParam.startsWith('ref_')) {
           // Track referral
           console.log("Referral link activated:", startParam);
+          const userId = window.Telegram.WebApp.initDataUnsafe?.user?.id || 12345;
+          fetch('/api/users/apply_referral', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, referral_code: startParam })
+          }).catch(e => console.error("Failed to apply referral", e));
         } else if (startParam.startsWith('copy_')) {
           // Route to cabinet for copy trade setup
           setActiveTab('cabinet');
