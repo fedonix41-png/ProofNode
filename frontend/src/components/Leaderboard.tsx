@@ -2,11 +2,7 @@ import React, { useState } from 'react';
 import { TonConnectButton, useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import { Trophy, Star, ShieldCheck } from 'lucide-react';
 
-const TRADERS = [
-  { id: 1, name: 'Crypto Wizard', badge: 'Pro', roi: '+842%', winrate: '78%', followers: 1204, price: '10 TON', public_slug: 'crypto-wizard' },
-  { id: 2, name: 'Whale Tracker', badge: 'Elite', roi: '+450%', winrate: '65%', followers: 890, price: '5 TON', public_slug: 'whale-tracker' },
-  { id: 3, name: 'Sniper Bot', badge: 'Verified', roi: '+310%', winrate: '82%', followers: 432, price: 'FREE', public_slug: 'sniper-bot' }
-];
+
 
 interface LeaderboardProps {
   onTraderSelect?: (slug: string) => void;
@@ -15,6 +11,39 @@ interface LeaderboardProps {
 export const Leaderboard: React.FC<LeaderboardProps> = ({ onTraderSelect }) => {
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
+  const [traders, setTraders] = useState<any[]>([]);
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [isLoading, setIsLoading] = useState(false);
+
+  React.useEffect(() => {
+    const fetchTraders = async () => {
+      setIsLoading(true);
+      try {
+        let url = '/api/traders';
+        const params = new URLSearchParams();
+        if (['TON', 'SOL', 'BASE'].includes(activeFilter)) {
+          params.append('blockchain', activeFilter);
+        } else if (activeFilter === 'High Winrate') {
+          params.append('high_winrate', 'true');
+        }
+        
+        if (params.toString()) {
+          url += `?${params.toString()}`;
+        }
+        
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          setTraders(data);
+        }
+      } catch (e) {
+        console.error('Failed to fetch traders', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchTraders();
+  }, [activeFilter]);
 
   const handleSubscribe = async (trader: any) => {
     if (!wallet) {
@@ -72,8 +101,26 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onTraderSelect }) => {
         <p className="text-hint text-sm mb-4">Subscribe to signals from verified elite traders.</p>
       </div>
 
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide hide-scrollbars">
+        {['All', 'TON', 'SOL', 'BASE', 'High Winrate'].map(cat => (
+          <button 
+            key={cat} 
+            className={`px-3 py-1.5 text-xs font-semibold rounded-full whitespace-nowrap transition-colors ${
+              activeFilter === cat 
+                ? 'bg-[var(--accent-blue)] text-white' 
+                : 'bg-white/5 border border-white/10 text-hint hover:text-white'
+            }`}
+            onClick={() => setActiveFilter(cat)}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-col gap-3">
-        {TRADERS.map((trader, index) => (
+        {isLoading ? (
+          <div className="text-center text-hint py-8 animate-pulse">Loading arena...</div>
+        ) : traders.map((trader, index) => (
           <div 
             key={trader.id} 
             className="glass-card flex flex-col gap-3 relative cursor-pointer hover:bg-white/5 transition-colors"
@@ -89,6 +136,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onTraderSelect }) => {
                     {trader.name}
                     {trader.badge === 'Verified' && <ShieldCheck size={14} className="text-[var(--accent-green)]" />}
                     {trader.badge === 'Elite' && <Star size={14} className="text-[#f1c40f]" />}
+                    {trader.badge === 'Pro' && <Star size={14} className="text-[var(--accent-blue)]" />}
                   </h3>
                   <div className="text-sm text-hint">{trader.followers} Followers</div>
                 </div>
@@ -115,7 +163,10 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onTraderSelect }) => {
 
             <button 
               className="btn-primary mt-2" 
-              onClick={() => handleSubscribe(trader)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSubscribe(trader);
+              }}
             >
               Subscribe • {trader.price}
             </button>

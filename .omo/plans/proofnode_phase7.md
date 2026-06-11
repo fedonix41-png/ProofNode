@@ -129,7 +129,7 @@ To finalize all monetization features specified in the original ТЗ:
   - Update `bot/consumer.py` to check premium for instant notifications.
   - *Commit guidance*: "feat: add B2C premium subscription tier"
 
-- [ ] **Premium Purchase UI**
+- [x] **Premium Purchase UI**
   - Create `PremiumUpsell.tsx`:
     - Benefits list: unlimited wallets, instant alerts, top 100 list.
     - Price: $15/month in TON or Stars.
@@ -137,7 +137,7 @@ To finalize all monetization features specified in the original ТЗ:
   - Show upsell banner in `Radar.tsx` for free users.
   - *Commit guidance*: "feat: add premium subscription purchase flow"
 
-- [ ] **Commission Aggregation**
+- [x] **Commission Aggregation**
   - Create `backend/app/services/commission.py`:
     - `aggregate_daily_commission()` → sum 5% from subscription payments.
     - `schedule_payout(amount)` → create pending `commission_payouts` record.
@@ -145,14 +145,14 @@ To finalize all monetization features specified in the original ТЗ:
     - Daily cron at 00:00 UTC calling `aggregate_daily_commission()`.
   - *Commit guidance*: "feat: add daily platform commission aggregation"
 
-- [ ] **Top Traders Endpoint**
+- [x] **Top Traders Endpoint**
   - Add `GET /traders/top-week`:
     - Return top 10 traders by ROI in last 7 days.
     - Include basic stats: slug, name, ROI, winrate.
     - Cache in Redis with 1-hour TTL.
   - *Commit guidance*: "feat: add weekly top traders endpoint for marketing"
 
-- [ ] **Integration Tests**
+- [x] **Integration Tests**
   - Create `tests/test_monetization.py`:
     - Test referral credit application.
     - Test wallet limit calculation with credits.

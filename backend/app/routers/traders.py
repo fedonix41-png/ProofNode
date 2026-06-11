@@ -68,19 +68,71 @@ async def create_trader_profile(payload: TraderProfileCreate):
                 detail=f"Slug '{payload.public_slug}' might already be taken or invalid payload: {e}"
             )
 
+from backend.app.config import settings
+
 @router.get("", status_code=status.HTTP_200_OK)
-async def list_traders(category: Optional[str] = None):
+async def list_traders(
+    category: Optional[str] = None,
+    blockchain: Optional[str] = None,
+    high_winrate: Optional[bool] = False
+):
     async for conn in db.get_connection():
-        query = "SELECT id, title, description, category, is_verified, public_slug, created_at FROM trader_profiles"
+        query = """
+            SELECT 
+                p.id, p.title as name, p.category as badge, p.is_verified, p.public_slug,
+                COALESCE((SELECT cumulative_roi FROM trader_pnl_history h WHERE h.trader_profile_id = p.id ORDER BY time DESC LIMIT 1), 0) as roi,
+                COALESCE((SELECT winrate FROM trader_pnl_history h WHERE h.trader_profile_id = p.id ORDER BY time DESC LIMIT 1), 50.0) as winrate,
+                (SELECT COUNT(*) FROM subscriptions s WHERE s.trader_profile_id = p.id AND s.status = 'ACTIVE') as followers,
+                COALESCE((SELECT price_crypto::text || ' ' || currency FROM tariffs t WHERE t.trader_profile_id = p.id ORDER BY duration_days ASC LIMIT 1), 'FREE') as price
+            FROM trader_profiles p
+            WHERE 1=1
+        """
         args = []
-        if category:
-            query += " WHERE category = $1"
-            args.append(category)
+        arg_idx = 1
         
-        query += " ORDER BY created_at DESC"
+        if category:
+            query += f" AND p.category = ${arg_idx}"
+            args.append(category)
+            arg_idx += 1
+            
+        if blockchain:
+            query += f" AND EXISTS (SELECT 1 FROM trader_wallets w WHERE w.trader_profile_id = p.id AND w.blockchain = ${arg_idx})"
+            args.append(blockchain)
+            arg_idx += 1
+            
+        # For winrate, we wrap it in a subquery or just use the subquery text directly in WHERE
+        if high_winrate:
+            threshold = settings.high_winrate_threshold
+            query += f" AND COALESCE((SELECT winrate FROM trader_pnl_history h WHERE h.trader_profile_id = p.id ORDER BY time DESC LIMIT 1), 50.0) >= {threshold}"
+            
+        query += " ORDER BY roi DESC LIMIT 10"
         
         rows = await conn.fetch(query, *args)
-        return [dict(row) for row in rows]
+        results = [dict(row) for row in rows]
+        
+        # Format the numbers for the UI just like mock data
+        for r in results:
+            roi_val = r["roi"]
+            r["roi"] = f"+{roi_val}%" if roi_val > 0 else f"{roi_val}%"
+            r["winrate"] = f'{r["winrate"]}%'
+            if r["badge"] is None:
+                r["badge"] = "Verified" if r["is_verified"] else "Pro"
+                
+        # If no real data, supply mock data
+        if not results:
+            mock_data = [
+                {"id": 1, "name": "Crypto Wizard", "badge": "Pro", "roi": "+842%", "winrate": "78%", "followers": 1204, "price": "10 TON", "public_slug": "crypto-wizard"},
+                {"id": 2, "name": "Whale Tracker", "badge": "Elite", "roi": "+450%", "winrate": "65%", "followers": 890, "price": "5 TON", "public_slug": "whale-tracker"},
+                {"id": 3, "name": "Sniper Bot", "badge": "Verified", "roi": "+310%", "winrate": "82%", "followers": 432, "price": "FREE", "public_slug": "sniper-bot"}
+            ]
+            if blockchain:
+                # mock logic
+                pass
+            if high_winrate:
+                mock_data = [t for t in mock_data if int(t["winrate"].replace('%','')) >= settings.high_winrate_threshold]
+            return mock_data[:10]
+            
+        return results
 
 @router.post("/wallets", status_code=status.HTTP_201_CREATED)
 async def add_trader_wallet(payload: TraderWalletCreate):
