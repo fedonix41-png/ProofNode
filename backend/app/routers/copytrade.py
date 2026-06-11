@@ -1,11 +1,12 @@
 import logging
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel, Field
 from uuid import UUID
 from decimal import Decimal
 from typing import Optional
 
 from backend.app.db import db
+from backend.app.core.security import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/copytrade", tags=["copytrade"])
@@ -25,12 +26,14 @@ class Execute1ClickRequest(BaseModel):
 
 # Endpoints
 @router.post("/config", status_code=status.HTTP_200_OK)
-async def configure_copy_trade(payload: CopyTradeConfigCreate):
+async def configure_copy_trade(payload: CopyTradeConfigCreate, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
         # Validate subscription exists
         sub = await conn.fetchrow("SELECT id, user_id FROM subscriptions WHERE id = $1", payload.subscription_id)
         if not sub:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
+        if sub["user_id"] != current_user:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your subscription")
             
         # Validate proxy wallet if mode is AUTOMATED
         if payload.copy_mode == "AUTOMATED":
@@ -82,8 +85,13 @@ async def configure_copy_trade(payload: CopyTradeConfigCreate):
             )
 
 @router.get("/config/{subscription_id}", status_code=status.HTTP_200_OK)
-async def get_copy_trade_config(subscription_id: UUID):
+async def get_copy_trade_config(subscription_id: UUID, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
+        # Validate subscription ownership
+        sub = await conn.fetchrow("SELECT user_id FROM subscriptions WHERE id = $1", subscription_id)
+        if not sub or sub["user_id"] != current_user:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
         row = await conn.fetchrow(
             """
             SELECT id, subscription_id, copy_mode, proxy_wallet_id, max_allocation_per_trade, slippage_bps, is_active
@@ -100,7 +108,7 @@ async def get_copy_trade_config(subscription_id: UUID):
         return dict(row)
 
 @router.post("/execute-1click", status_code=status.HTTP_200_OK)
-async def execute_1click_trade(payload: Execute1ClickRequest):
+async def execute_1click_trade(payload: Execute1ClickRequest, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
         # Get pending copy trade
         pending = await conn.fetchrow(
@@ -112,6 +120,8 @@ async def execute_1click_trade(payload: Execute1ClickRequest):
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Pending copy trade signal not found."
             )
+        if pending["user_id"] != current_user:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your pending trade")
             
         try:
             # Update status to EXECUTED

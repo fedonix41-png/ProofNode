@@ -1,9 +1,10 @@
 import logging
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel, Field
 from uuid import UUID
 from datetime import datetime
 from backend.app.db import db
+from backend.app.core.security import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/signals", tags=["signals"])
@@ -17,12 +18,12 @@ class SignalCreate(BaseModel):
     stop_loss: float = Field(None, gt=0)
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_signal(payload: SignalCreate):
+async def create_signal(payload: SignalCreate, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
-        # Check if trader profile exists
-        profile = await conn.fetchrow("SELECT id FROM trader_profiles WHERE id = $1", payload.trader_profile_id)
+        # Check if trader profile exists and user owns it
+        profile = await conn.fetchrow("SELECT id FROM trader_profiles WHERE id = $1 AND admin_id = $2", payload.trader_profile_id, current_user)
         if not profile:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trader profile not found")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Trader profile not found or access denied")
             
         # In a real app we'd insert into a signals table, but for now we'll mock the response
         # or we could create the table if we wanted to

@@ -10,6 +10,7 @@ from aiogram import Bot
 from backend.app.config import settings
 from backend.app.db import db
 from backend.app.services.rpc import rpc_client
+from backend.app.core.security import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/subscriptions", tags=["subscriptions"])
@@ -26,7 +27,7 @@ class VerificationRequest(BaseModel):
 
 # Endpoints
 @router.post("/purchase", status_code=status.HTTP_200_OK)
-async def initiate_purchase(payload: PurchaseRequest):
+async def initiate_purchase(payload: PurchaseRequest, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
         # Retrieve tariff information
         tariff = await conn.fetchrow(
@@ -44,11 +45,11 @@ async def initiate_purchase(payload: PurchaseRequest):
         # Ensure user exists (implicitly create user for simple onboarding)
         await conn.execute(
             "INSERT INTO users (id, username, is_premium) VALUES ($1, $2, FALSE) ON CONFLICT (id) DO NOTHING",
-            payload.user_id, f"user_{payload.user_id}"
+            current_user, f"user_{current_user}"
         )
         
         return {
-            "user_id": payload.user_id,
+            "user_id": current_user,
             "tariff_id": payload.tariff_id,
             "duration_days": tariff["duration_days"],
             "price_crypto": float(tariff["price_crypto"]) if tariff["price_crypto"] else None,
@@ -59,15 +60,15 @@ async def initiate_purchase(payload: PurchaseRequest):
         }
 
 @router.post("/verify", status_code=status.HTTP_200_OK)
-async def verify_payment(payload: VerificationRequest):
+async def verify_payment(payload: VerificationRequest, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
         # Get user
-        user = await conn.fetchrow("SELECT id FROM users WHERE id = $1", payload.user_id)
+        user = await conn.fetchrow("SELECT id FROM users WHERE id = $1", current_user)
         if not user:
             # Create user implicitly if missing
             await conn.execute(
                 "INSERT INTO users (id, username, is_premium) VALUES ($1, $2, FALSE) ON CONFLICT (id) DO NOTHING",
-                payload.user_id, f"user_{payload.user_id}"
+                current_user, f"user_{current_user}"
             )
             
         # Get tariff
@@ -119,7 +120,7 @@ async def verify_payment(payload: VerificationRequest):
             # TODO: Record trader_net to the trader's balance in the DB ledger
         
         # Generate Invite Link
-        invite_link = f"https://t.me/+mock_invite_link_{payload.user_id}"
+        invite_link = f"https://t.me/+mock_invite_link_{current_user}"
         
         # Call Telegram Bot API if bot_token is real
         if settings.bot_token and settings.bot_token != "mock_token" and not settings.bot_token.endswith("mock"):
@@ -137,7 +138,7 @@ async def verify_payment(payload: VerificationRequest):
             except Exception as e:
                 logger.error(f"Failed to generate Telegram invite link: {e}")
                 # Fall back to mock link in dev so API doesn't fail
-                invite_link = f"https://t.me/joinchat/fallback_link_{payload.user_id}"
+                invite_link = f"https://t.me/joinchat/fallback_link_{current_user}"
         
         # Record subscription in database
         try:
@@ -148,7 +149,7 @@ async def verify_payment(payload: VerificationRequest):
                 ON CONFLICT DO NOTHING
                 RETURNING id, user_id, trader_profile_id, status, expires_at, invite_link
                 """,
-                payload.user_id, tariff["trader_profile_id"], payload.tariff_id, expires_at, invite_link
+                current_user, tariff["trader_profile_id"], payload.tariff_id, expires_at, invite_link
             )
             
             # If CONFLICT or row is None (e.g. duplicate subscription click), fetch existing
@@ -160,7 +161,7 @@ async def verify_payment(payload: VerificationRequest):
                     WHERE user_id = $1 AND trader_profile_id = $2 AND status = 'ACTIVE'
                     LIMIT 1
                     """,
-                    payload.user_id, tariff["trader_profile_id"]
+                    current_user, tariff["trader_profile_id"]
                 )
                 
             return dict(row)
@@ -177,12 +178,12 @@ class PremiumPurchaseRequest(BaseModel):
     payment_method: str = Field(..., description="'TON' or 'STARS'")
 
 @router.post("/premium", status_code=status.HTTP_200_OK)
-async def purchase_premium(payload: PremiumPurchaseRequest):
+async def purchase_premium(payload: PremiumPurchaseRequest, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
         # Ensure user exists
         await conn.execute(
             "INSERT INTO users (id, username, is_premium) VALUES ($1, $2, FALSE) ON CONFLICT (id) DO NOTHING",
-            payload.user_id, f"user_{payload.user_id}"
+            current_user, f"user_{current_user}"
         )
         
         # Verify transaction (mocked for testing)
@@ -213,7 +214,7 @@ async def purchase_premium(payload: PremiumPurchaseRequest):
             # Update user
             await conn.execute(
                 "UPDATE users SET is_premium = TRUE, premium_expires_at = $1 WHERE id = $2",
-                expires_at, payload.user_id
+                expires_at, current_user
             )
             
             # Record premium subscription
@@ -223,7 +224,7 @@ async def purchase_premium(payload: PremiumPurchaseRequest):
                 VALUES ($1, 'ACTIVE', $2, $3)
                 RETURNING id, user_id, status, expires_at
                 """,
-                payload.user_id, expires_at, payload.tx_hash
+                current_user, expires_at, payload.tx_hash
             )
             
         return dict(row)

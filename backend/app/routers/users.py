@@ -3,6 +3,8 @@ from fastapi import APIRouter, HTTPException, status
 from backend.app.db import db
 from pydantic import BaseModel
 from typing import Optional
+from fastapi import Depends
+from backend.app.core.security import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -18,7 +20,8 @@ class ApplyReferralRequest(BaseModel):
     referral_code: str
 
 @router.get("/referrals", response_model=ReferralStatsResponse, status_code=status.HTTP_200_OK)
-async def get_referrals(user_id: int):
+async def get_referrals(current_user: int = Depends(get_current_user)):
+    user_id = current_user
     async for conn in db.get_connection():
         # Get or create user referral code
         user = await conn.fetchrow("SELECT referral_code, referral_credits FROM users WHERE id = $1", user_id)
@@ -45,7 +48,10 @@ async def get_referrals(user_id: int):
         )
 
 @router.post("/apply_referral", status_code=status.HTTP_200_OK)
-async def apply_referral_endpoint(req: ApplyReferralRequest):
+async def apply_referral_endpoint(req: ApplyReferralRequest, current_user: int = Depends(get_current_user)):
+    if req.user_id != current_user:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot apply referral for another user")
+        
     async for conn in db.get_connection():
         # Clean prefix if exists
         code = req.referral_code

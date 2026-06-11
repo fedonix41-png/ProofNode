@@ -8,13 +8,13 @@ from decimal import Decimal
 
 from backend.app.db import db
 from backend.app.services.rpc import rpc_client
+from backend.app.core.security import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/traders", tags=["traders"])
 
 # Pydantic schemas for requests
 class TraderProfileCreate(BaseModel):
-    admin_id: int
     title: str = Field(..., max_length=100)
     description: Optional[str] = None
     public_slug: str = Field(..., max_length=50)
@@ -42,13 +42,13 @@ class SignalCreateRequest(BaseModel):
 
 # Endpoints
 @router.post("/profile", status_code=status.HTTP_201_CREATED)
-async def create_trader_profile(payload: TraderProfileCreate):
+async def create_trader_profile(payload: TraderProfileCreate, current_user: int = Depends(get_current_user)):
     # Ensure user exists first (or create user implicitly for ease of setup/testing)
     async for conn in db.get_connection():
         # First make sure the admin user exists
         await conn.execute(
             "INSERT INTO users (id, username, is_premium) VALUES ($1, $2, FALSE) ON CONFLICT (id) DO NOTHING",
-            payload.admin_id, f"trader_{payload.admin_id}"
+            current_user, f"trader_{current_user}"
         )
         
         try:
@@ -58,7 +58,7 @@ async def create_trader_profile(payload: TraderProfileCreate):
                 VALUES ($1, $2, $3, $4)
                 RETURNING id, admin_id, title, description, is_verified, public_slug, created_at
                 """,
-                payload.admin_id, payload.title, payload.description, payload.public_slug
+                current_user, payload.title, payload.description, payload.public_slug
             )
             return dict(row)
         except Exception as e:
@@ -135,12 +135,12 @@ async def list_traders(
         return results
 
 @router.post("/wallets", status_code=status.HTTP_201_CREATED)
-async def add_trader_wallet(payload: TraderWalletCreate):
+async def add_trader_wallet(payload: TraderWalletCreate, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
         # Check if profile exists
-        profile = await conn.fetchrow("SELECT id FROM trader_profiles WHERE id = $1", payload.trader_profile_id)
+        profile = await conn.fetchrow("SELECT id FROM trader_profiles WHERE id = $1 AND admin_id = $2", payload.trader_profile_id, current_user)
         if not profile:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trader profile not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trader profile not found or access denied")
             
         try:
             row = await conn.fetchrow(
@@ -160,22 +160,23 @@ async def add_trader_wallet(payload: TraderWalletCreate):
             )
 
 @router.post("/{id}/wallets", status_code=status.HTTP_201_CREATED)
-async def add_trader_wallet_by_id(id: UUID, payload: TraderWalletCreatePath):
+async def add_trader_wallet_by_id(id: UUID, payload: TraderWalletCreatePath, current_user: int = Depends(get_current_user)):
     return await add_trader_wallet(
         TraderWalletCreate(
             trader_profile_id=id,
             blockchain=payload.blockchain,
             address=payload.address
-        )
+        ),
+        current_user=current_user
     )
 
 @router.post("/tariffs", status_code=status.HTTP_201_CREATED)
-async def create_tariff(payload: TariffCreate):
+async def create_tariff(payload: TariffCreate, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
         # Check if profile exists
-        profile = await conn.fetchrow("SELECT id FROM trader_profiles WHERE id = $1", payload.trader_profile_id)
+        profile = await conn.fetchrow("SELECT id FROM trader_profiles WHERE id = $1 AND admin_id = $2", payload.trader_profile_id, current_user)
         if not profile:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trader profile not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trader profile not found or access denied")
             
         try:
             row = await conn.fetchrow(
@@ -226,12 +227,12 @@ async def get_trader_by_slug(slug: str):
         return trader_dict
 
 @router.post("/{id}/signals", status_code=status.HTTP_201_CREATED)
-async def create_signal(id: UUID, payload: SignalCreateRequest):
+async def create_signal(id: UUID, payload: SignalCreateRequest, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
         # Check if profile exists
-        profile = await conn.fetchrow("SELECT id FROM trader_profiles WHERE id = $1", id)
+        profile = await conn.fetchrow("SELECT id FROM trader_profiles WHERE id = $1 AND admin_id = $2", id, current_user)
         if not profile:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trader profile not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trader profile not found or access denied")
             
         # Capture current price via RPC
         entry_price = await rpc_client.get_token_price(payload.blockchain, payload.token_address)
@@ -254,8 +255,13 @@ async def create_signal(id: UUID, payload: SignalCreateRequest):
             )
 
 @router.post("/{id}/signals/{signal_id}/close", status_code=status.HTTP_200_OK)
-async def close_signal(id: UUID, signal_id: UUID):
+async def close_signal(id: UUID, signal_id: UUID, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
+        # Ensure user owns profile
+        profile = await conn.fetchrow("SELECT id FROM trader_profiles WHERE id = $1 AND admin_id = $2", id, current_user)
+        if not profile:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Trader profile access denied")
+            
         signal = await conn.fetchrow(
             "SELECT id, blockchain, token_address, direction, entry_price, status FROM signals WHERE id = $1 AND trader_profile_id = $2",
             signal_id, id

@@ -5,6 +5,7 @@ import hmac
 import hashlib
 from fastapi import FastAPI, HTTPException, Header, status, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import aio_pika
 import redis.asyncio as aioredis
 
@@ -84,6 +85,20 @@ app = FastAPI(
     description="Stateless Webhook Ingestion Gateway for ProofNode blockchain transaction event tracking",
     version="1.0.0",
     lifespan=lifespan
+)
+
+# Enable CORS for Telegram WebApp
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173", 
+        "http://127.0.0.1:5173", 
+        "https://proof.vdkgame.sbs"
+    ],
+    allow_origin_regex=r"https://.*\.trycloudflare\.com|https://.*\.ngrok-free\.app|https://.*\.t\.me",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(traders.router)

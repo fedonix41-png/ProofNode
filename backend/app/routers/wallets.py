@@ -1,7 +1,7 @@
 import logging
 import secrets
 import hashlib
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel, Field
 from uuid import UUID
 from decimal import Decimal
@@ -9,6 +9,7 @@ from typing import Optional
 
 from backend.app.db import db
 from backend.app.services.kms import kms_service
+from backend.app.core.security import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/wallets", tags=["wallets"])
@@ -41,12 +42,11 @@ class MonitoredWalletCreateRequest(BaseModel):
 
 # Endpoints
 @router.post("/sss/register", status_code=status.HTTP_201_CREATED)
-async def register_sss_share(payload: SSSRegisterRequest):
+async def register_sss_share(payload: SSSRegisterRequest, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
-        # Ensure user exists (implicit creation for onboarding ease)
         await conn.execute(
             "INSERT INTO users (id, username, is_premium) VALUES ($1, $2, FALSE) ON CONFLICT (id) DO NOTHING",
-            payload.user_id, f"user_{payload.user_id}"
+            current_user, f"user_{current_user}"
         )
         
         try:
@@ -58,7 +58,7 @@ async def register_sss_share(payload: SSSRegisterRequest):
                 DO UPDATE SET server_share = EXCLUDED.server_share, created_at = CURRENT_TIMESTAMP
                 RETURNING id, user_id, blockchain, address, created_at
                 """,
-                payload.user_id, payload.blockchain, payload.address, payload.server_share
+                current_user, payload.blockchain, payload.address, payload.server_share
             )
             return dict(row)
         except Exception as e:
@@ -69,14 +69,14 @@ async def register_sss_share(payload: SSSRegisterRequest):
             )
 
 @router.post("/sss/retrieve", status_code=status.HTTP_200_OK)
-async def retrieve_sss_share(payload: SSSRetrieveRequest):
+async def retrieve_sss_share(payload: SSSRetrieveRequest, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
         row = await conn.fetchrow(
             """
             SELECT server_share FROM user_sss_shares
             WHERE user_id = $1 AND blockchain = $2 AND address = $3
             """,
-            payload.user_id, payload.blockchain, payload.address
+            current_user, payload.blockchain, payload.address
         )
         if not row:
             raise HTTPException(
@@ -86,7 +86,7 @@ async def retrieve_sss_share(payload: SSSRetrieveRequest):
         return {"server_share": row["server_share"]}
 
 @router.post("/proxy/create", status_code=status.HTTP_201_CREATED)
-async def create_proxy_wallet(payload: ProxyWalletCreateRequest):
+async def create_proxy_wallet(payload: ProxyWalletCreateRequest, current_user: int = Depends(get_current_user)):
     # Generate mock keypair
     private_key_hex = secrets.token_hex(32)
     
@@ -106,7 +106,7 @@ async def create_proxy_wallet(payload: ProxyWalletCreateRequest):
         # Ensure user exists
         await conn.execute(
             "INSERT INTO users (id, username, is_premium) VALUES ($1, $2, FALSE) ON CONFLICT (id) DO NOTHING",
-            payload.user_id, f"user_{payload.user_id}"
+            current_user, f"user_{current_user}"
         )
         
         try:
@@ -118,7 +118,7 @@ async def create_proxy_wallet(payload: ProxyWalletCreateRequest):
                 DO UPDATE SET address = EXCLUDED.address, encrypted_private_key = EXCLUDED.encrypted_private_key, created_at = CURRENT_TIMESTAMP
                 RETURNING id, user_id, blockchain, address, balance, created_at
                 """,
-                payload.user_id, payload.blockchain, address, encrypted_key
+                current_user, payload.blockchain, address, encrypted_key
             )
             return dict(row)
         except Exception as e:
@@ -129,7 +129,7 @@ async def create_proxy_wallet(payload: ProxyWalletCreateRequest):
             )
 
 @router.post("/proxy/deposit", status_code=status.HTTP_200_OK)
-async def deposit_proxy_wallet(payload: ProxyWalletDepositRequest):
+async def deposit_proxy_wallet(payload: ProxyWalletDepositRequest, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
         # Update balance
         row = await conn.fetchrow(
@@ -149,16 +149,16 @@ async def deposit_proxy_wallet(payload: ProxyWalletDepositRequest):
         return dict(row)
 
 @router.post("/monitor", status_code=status.HTTP_201_CREATED)
-async def monitor_wallet(payload: MonitoredWalletCreateRequest):
+async def monitor_wallet(payload: MonitoredWalletCreateRequest, current_user: int = Depends(get_current_user)):
     async for conn in db.get_connection():
         # Ensure user exists
         await conn.execute(
             "INSERT INTO users (id, username, is_premium) VALUES ($1, $2, FALSE) ON CONFLICT (id) DO NOTHING",
-            payload.user_id, f"user_{payload.user_id}"
+            current_user, f"user_{current_user}"
         )
         
         # Check limit
-        user = await conn.fetchrow("SELECT is_premium, referral_credits FROM users WHERE id = $1", payload.user_id)
+        user = await conn.fetchrow("SELECT is_premium, referral_credits FROM users WHERE id = $1", current_user)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
             
@@ -167,7 +167,7 @@ async def monitor_wallet(payload: MonitoredWalletCreateRequest):
         max_slots = get_max_wallets(user["is_premium"], referral_credits)
         
         if max_slots != -1:
-            count = await conn.fetchval("SELECT COUNT(*) FROM monitored_wallets WHERE user_id = $1", payload.user_id)
+            count = await conn.fetchval("SELECT COUNT(*) FROM monitored_wallets WHERE user_id = $1", current_user)
             if count >= max_slots:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"You can only monitor up to {max_slots} wallets.")
                 
@@ -178,7 +178,7 @@ async def monitor_wallet(payload: MonitoredWalletCreateRequest):
                 VALUES ($1, $2, $3, $4)
                 RETURNING id, user_id, blockchain, address, label, push_enabled, created_at
                 """,
-                payload.user_id, payload.blockchain, payload.address, payload.label
+                current_user, payload.blockchain, payload.address, payload.label
             )
             return dict(row)
         except Exception as e:
@@ -189,7 +189,8 @@ async def monitor_wallet(payload: MonitoredWalletCreateRequest):
             )
 
 @router.get("/tracker/stats", status_code=status.HTTP_200_OK)
-async def get_tracker_stats(user_id: int):
+async def get_tracker_stats(current_user: int = Depends(get_current_user)):
+    user_id = current_user
     async for conn in db.get_connection():
         wallets = await conn.fetch(
             "SELECT address, blockchain, label FROM monitored_wallets WHERE user_id = $1",
