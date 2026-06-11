@@ -9,7 +9,7 @@ import redis.asyncio as aioredis
 from backend.app.config import settings
 from backend.app.db import db
 from backend.app.schemas import TonWebhookPayload, SolWebhookPayload, EvmWebhookPayload
-from backend.app.routers import traders, subscriptions
+from backend.app.routers import traders, subscriptions, wallets, copytrade
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,11 +18,13 @@ logger = logging.getLogger(__name__)
 rabbitmq_connection: aio_pika.abc.AbstractConnection | None = None
 rabbitmq_channel: aio_pika.abc.AbstractChannel | None = None
 rabbitmq_queue: aio_pika.abc.AbstractQueue | None = None
+rabbitmq_copy_queue: aio_pika.abc.AbstractQueue | None = None
+rabbitmq_bot_queue: aio_pika.abc.AbstractQueue | None = None
 redis_client: aioredis.Redis | None = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global rabbitmq_connection, rabbitmq_channel, rabbitmq_queue, redis_client
+    global rabbitmq_connection, rabbitmq_channel, rabbitmq_queue, rabbitmq_copy_queue, rabbitmq_bot_queue, redis_client
     
     # 1. Initialize DB Connection Pool
     await db.connect()
@@ -41,7 +43,17 @@ async def lifespan(app: FastAPI):
             "raw_blockchain_events",
             durable=True
         )
-        logger.info("Connected to RabbitMQ and declared raw_blockchain_events queue.")
+        # Declare queue for copy-trade executions
+        rabbitmq_copy_queue = await rabbitmq_channel.declare_queue(
+            "copy_trade_execution",
+            durable=True
+        )
+        # Declare queue for bot notifications
+        rabbitmq_bot_queue = await rabbitmq_channel.declare_queue(
+            "tg_bot_notifications",
+            durable=True
+        )
+        logger.info("Connected to RabbitMQ and declared raw_blockchain_events, copy_trade_execution, and tg_bot_notifications queues.")
     except Exception as e:
         logger.error(f"Failed to initialize RabbitMQ connection: {e}")
         # In a real environment, we'd fall back or handle connection failures.
@@ -66,6 +78,8 @@ app = FastAPI(
 
 app.include_router(traders.router)
 app.include_router(subscriptions.router)
+app.include_router(wallets.router)
+app.include_router(copytrade.router)
 
 # Health endpoint
 @app.get("/health", status_code=status.HTTP_200_OK)
@@ -73,13 +87,13 @@ async def health_check():
     health_status = {"status": "ok", "db": "disconnected", "redis": "disconnected", "rabbitmq": "disconnected"}
     
     # Check DB pool
-    if db._pool is not None:
-        try:
-            async with db._pool.acquire() as conn:
-                await conn.execute("SELECT 1")
-                health_status["db"] = "connected"
-        except Exception:
-            health_status["db"] = "error"
+    try:
+        async for conn in db.get_connection():
+            await conn.execute("SELECT 1")
+            health_status["db"] = "connected"
+            break
+    except Exception:
+        health_status["db"] = "error"
             
     # Check Redis
     if redis_client:

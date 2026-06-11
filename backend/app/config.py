@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     bot_token: str = Field(default="mock_token", alias="BOT_TOKEN")
     channel_id: int = Field(default=-10012345678, alias="CHANNEL_ID")
 
+    # KMS Encryption settings
+    kms_master_key: str = Field(default="test_kms_master_key_dev_placeholder", alias="KMS_MASTER_KEY")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

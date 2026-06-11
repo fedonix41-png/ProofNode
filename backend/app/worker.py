@@ -11,6 +11,9 @@ from backend.app.parser import parse_blockchain_transaction
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+rabbitmq_connection: aio_pika.abc.AbstractConnection | None = None
+rabbitmq_channel: aio_pika.abc.AbstractChannel | None = None
+
 async def insert_wallet_transaction(conn, parsed_tx: dict) -> None:
     query = """
         INSERT INTO wallet_transactions (
@@ -37,6 +40,61 @@ async def insert_wallet_transaction(conn, parsed_tx: dict) -> None:
         parsed_tx["usd_value"],
         parsed_tx["tx_type"]
     )
+
+async def check_and_trigger_copy_trades(conn, parsed_tx: dict) -> None:
+    # Check if the transaction wallet is a registered trader wallet
+    trader_wallet = await conn.fetchrow(
+        "SELECT trader_profile_id FROM trader_wallets WHERE blockchain = $1 AND address = $2",
+        parsed_tx["blockchain"], parsed_tx["wallet_address"]
+    )
+    if not trader_wallet:
+        return
+        
+    logger.info(f"Transaction {parsed_tx['tx_hash']} matches trader wallet for profile {trader_wallet['trader_profile_id']}. Checking copy-trade subscribers.")
+    
+    # Query subscribers with active configs
+    subscribers = await conn.fetch(
+        """
+        SELECT s.id as subscription_id, s.user_id, c.copy_mode, c.proxy_wallet_id, c.max_allocation_per_trade, c.slippage_bps
+        FROM subscriptions s
+        JOIN copy_trade_configs c ON s.id = c.subscription_id
+        WHERE s.trader_profile_id = $1 AND s.status = 'ACTIVE' AND s.expires_at > NOW() AND c.is_active = TRUE
+        """,
+        trader_wallet["trader_profile_id"]
+    )
+    
+    if not subscribers:
+        logger.info("No active subscribers with copy-trading enabled for this trader.")
+        return
+        
+    # Enqueue copy job for each subscriber
+    global rabbitmq_channel
+    if not rabbitmq_channel:
+        logger.error("RabbitMQ channel not initialized in worker. Cannot trigger copy trades.")
+        return
+        
+    for sub in subscribers:
+        job_payload = {
+            "user_id": sub["user_id"],
+            "subscription_id": str(sub["subscription_id"]),
+            "trader_tx_hash": parsed_tx["tx_hash"],
+            "blockchain": parsed_tx["blockchain"],
+            "copy_mode": sub["copy_mode"],
+            "proxy_wallet_id": str(sub["proxy_wallet_id"]) if sub["proxy_wallet_id"] else None,
+            "token_in": parsed_tx["token_in_address"],
+            "token_out": parsed_tx["token_out_address"],
+            "amount_in": str(sub["max_allocation_per_trade"]),
+            "slippage_bps": sub["slippage_bps"]
+        }
+        logger.info(f"Enqueuing copy trade job for user {sub['user_id']} ({sub['copy_mode']})")
+        
+        await rabbitmq_channel.default_exchange.publish(
+            aio_pika.Message(
+                body=json.dumps(job_payload).encode(),
+                delivery_mode=aio_pika.DeliveryMode.PERSISTENT
+            ),
+            routing_key="copy_trade_execution"
+        )
 
 async def process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None:
     async with message.process(requeue=False):
@@ -82,6 +140,9 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
             async for conn in db.get_connection():
                 await insert_wallet_transaction(conn, parsed_tx)
                 logger.info(f"Successfully recorded transaction {tx_hash} to TimescaleDB.")
+                
+                # Check and trigger copy trades
+                await check_and_trigger_copy_trades(conn, parsed_tx)
                 break
                 
         except json.JSONDecodeError:
@@ -96,12 +157,13 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
             raise e
 
 async def main() -> None:
+    global rabbitmq_connection, rabbitmq_channel
     # 1. Connect to Database connection pool
     await db.connect()
     
     # 2. Connect to RabbitMQ
-    connection = await aio_pika.connect_robust(settings.rabbitmq_url)
-    channel = await connection.channel()
+    rabbitmq_connection = await aio_pika.connect_robust(settings.rabbitmq_url)
+    rabbitmq_channel = await rabbitmq_connection.channel()
     
     # Set prefetch count to limit concurrent message processing
     await channel.set_qos(prefetch_count=10)
@@ -127,7 +189,7 @@ async def main() -> None:
     await stop_event.wait()
     
     # Clean up
-    await connection.close()
+    await rabbitmq_connection.close()
     await db.disconnect()
     logger.info("Worker shut down successfully.")
 

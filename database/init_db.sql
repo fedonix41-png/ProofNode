@@ -115,3 +115,65 @@ CREATE TABLE IF NOT EXISTS trader_pnl_history (
 
 -- Convert PnL history table to hypertable partitioned by 30 days
 SELECT create_hypertable('trader_pnl_history', 'time', chunk_time_interval => INTERVAL '30 days', if_not_exists => TRUE);
+
+-- Table for storing server-side SSS Share 2
+CREATE TABLE IF NOT EXISTS user_sss_shares (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    blockchain VARCHAR(10) NOT NULL, -- 'TON', 'BASE', 'SOL'
+    address VARCHAR(256) NOT NULL,
+    server_share TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, blockchain, address)
+);
+
+-- Table for user proxy wallets (automated cloud copy-trading)
+CREATE TABLE IF NOT EXISTS user_proxy_wallets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    blockchain VARCHAR(10) NOT NULL, -- 'TON', 'BASE', 'SOL'
+    address VARCHAR(256) NOT NULL,
+    encrypted_private_key TEXT NOT NULL,
+    balance NUMERIC(40, 18) DEFAULT 0.0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, blockchain)
+);
+
+-- Copy-trading configurations per trader subscription
+CREATE TABLE IF NOT EXISTS copy_trade_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    subscription_id UUID NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+    copy_mode VARCHAR(20) NOT NULL, -- '1-CLICK', 'AUTOMATED'
+    proxy_wallet_id UUID REFERENCES user_proxy_wallets(id) ON DELETE SET NULL,
+    max_allocation_per_trade NUMERIC(40, 18) NOT NULL,
+    slippage_bps INT NOT NULL DEFAULT 100, -- e.g. 100 bps = 1%
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (subscription_id)
+);
+
+-- Table for tracking pending 1-Click Copy-Trading signals
+CREATE TABLE IF NOT EXISTS pending_copy_trades (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    trader_tx_hash VARCHAR(128) NOT NULL,
+    blockchain VARCHAR(10) NOT NULL,
+    token_in_address VARCHAR(256) NOT NULL,
+    token_out_address VARCHAR(256) NOT NULL,
+    amount_in NUMERIC(40, 18) NOT NULL,
+    status VARCHAR(20) DEFAULT 'PENDING', -- 'PENDING', 'EXECUTED', 'EXPIRED'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table for recording completed copy-trade transactions
+CREATE TABLE IF NOT EXISTS copy_trade_executions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    trader_tx_hash VARCHAR(128) NOT NULL,
+    copy_tx_hash VARCHAR(128),
+    blockchain VARCHAR(10) NOT NULL,
+    status VARCHAR(20) NOT NULL, -- 'SUCCESS', 'FAILED'
+    error_message TEXT,
+    executed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
