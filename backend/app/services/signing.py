@@ -37,7 +37,8 @@ def sign_ecdsa(tx_dict: dict, private_key_hex: str) -> str:
         if not private_key_hex.startswith('0x'):
             private_key_hex = '0x' + private_key_hex
         signed_tx = Account.sign_transaction(tx_dict, private_key_hex)
-        return signed_tx.raw_transaction.hex() if hasattr(signed_tx, "raw_transaction") else signed_tx.rawTransaction.hex()
+        raw_hex = signed_tx.raw_transaction.hex() if hasattr(signed_tx, "raw_transaction") else signed_tx.rawTransaction.hex()
+        return "0x" + raw_hex
     except Exception as e:
         logger.error(f"Failed to sign ECDSA: {e}")
         return ""
@@ -54,8 +55,7 @@ def verify_ed25519_signature(tx_bytes: bytes, signature: bytes, public_key: byte
         pub = Pubkey(list(public_key))
         
         tx = VersionedTransaction.from_bytes(tx_bytes)
-        # solders Signature object has verify
-        return sig.verify(pub, tx.message.serialize())
+        return sig.verify(pub, bytes(tx.message))
     except Exception as e:
         logger.error(f"Failed to verify Ed25519 signature: {e}")
         return False
