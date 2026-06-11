@@ -15,6 +15,7 @@ export default defineConfig({
     },
   },
   server: {
+    allowedHosts: ["proof.vdkgame.sbs", ".trycloudflare.com", ".ngrok-free.app", ".loca.lt"],
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8000',

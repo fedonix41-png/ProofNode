@@ -1,0 +1,11 @@
+INFO:     Started server process [976845]
+INFO:     Waiting for application startup.
+INFO:backend.app.db:Database connection pool initialized.
+INFO:backend.app.main:Connected to Redis.
+INFO:backend.app.main:Connected to RabbitMQ and declared raw_blockchain_events, copy_trade_execution, and tg_bot_notifications queues.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     107.189.22.151:0 - "GET /api/traders HTTP/1.1" 200 OK
+INFO:     107.189.22.151:0 - "GET /api/traders HTTP/1.1" 200 OK
+INFO:     107.189.22.151:0 - "GET /api/users/referrals?user_id=123456789 HTTP/1.1" 404 Not Found
+INFO:     107.189.22.151:0 - "GET /api/users/referrals?user_id=123456789 HTTP/1.1" 404 Not Found

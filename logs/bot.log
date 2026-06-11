@@ -1,0 +1,10 @@
+INFO:__main__:Initializing ProofNode Telegram Bot...
+INFO:backend.app.db:Database connection pool initialized.
+INFO:bot.consumer:Initializing RabbitMQ notification consumer for Telegram Bot...
+INFO:bot.scheduler:Subscription expiration scheduler worker started.
+INFO:bot.consumer:Bot consumer is now listening on 'tg_bot_notifications' queue.
+INFO:__main__:Starting Telegram Bot long-polling...
+INFO:aiogram.dispatcher:Start polling
+INFO:aiogram.dispatcher:Run polling for bot @ProofNode_bot id=8996154601 - 'ProofNode'
+INFO:__main__:User 5031906280 (@Jonnymnemoniii) triggered /start
+INFO:aiogram.event:Update id=112947181 is handled. Duration 533 ms by bot id=8996154601

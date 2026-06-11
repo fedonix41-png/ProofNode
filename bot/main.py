@@ -2,6 +2,7 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
+from aiogram.types import MenuButtonWebApp, WebAppInfo
 import sentry_sdk
 
 from backend.app.config import settings
@@ -41,7 +42,13 @@ async def cmd_start(message: types.Message):
         "and track smart money on-chain safely.\n\n"
         "🔗 Connect your Web3 wallet inside the Mini App to start tracking and subscribing to VIP channels."
     )
-    await message.reply(welcome_text, parse_mode="Markdown")
+    
+    markup = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [types.InlineKeyboardButton(text="Open Mini App 🚀", web_app=WebAppInfo(url=settings.webapp_url))]
+        ]
+    )
+    await message.reply(welcome_text, parse_mode="Markdown", reply_markup=markup)
 
 # Bot /status Command Handler
 @dp.message(Command("status"))
@@ -100,6 +107,17 @@ async def run_bot():
 
     # Real bot initialization
     bot = Bot(token=settings.bot_token)
+    
+    # Set Menu Button
+    try:
+        await bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(
+                text="Open App", 
+                web_app=WebAppInfo(url=settings.webapp_url)
+            )
+        )
+    except Exception as e:
+        logger.error(f"Failed to set menu button: {e}")
     
     # Start the scheduler background loop
     from bot.scheduler import start_scheduler

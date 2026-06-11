@@ -51,6 +51,7 @@ class Settings(BaseSettings):
 
     # Telegram Bot Settings
     bot_token: str = Field(default="mock_token", alias="BOT_TOKEN")
+    webapp_url: str = Field(default="https://localhost:5173", alias="WEBAPP_URL")
     channel_id: int = Field(default=-10012345678, alias="CHANNEL_ID")
 
     # KMS Encryption settings

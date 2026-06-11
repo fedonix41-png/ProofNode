@@ -49,6 +49,13 @@ services:
       timeout: 5s
       retries: 5
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: proofnode-cloudflared
+    network_mode: "host"
+    command: tunnel --no-autoupdate run --token eyJhIjoiMDQ4ZmQzYTRiNzk1ZWFmMzcxMTFlMTc1NmYyYmE3MTAiLCJ0IjoiMGE0ZTU4MmQtMmZiMC00ZmFjLWJmZDgtOTA2Y2YzYjQyOTcxIiwicyI6Ik1qZzVPRGxoTURZdFpXUTJaaTAwTldJNUxUbGxPR0V0WVRoaU5qWTBZV1kwWXpBMiJ9
+    restart: always
+
 volumes:
   pgdata:
   rabbitdata:
