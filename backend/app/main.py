@@ -15,10 +15,10 @@ from backend.app.routers import traders, subscriptions, wallets, copytrade, user
 from backend.app.services.rpc import rpc_client
 
 import sentry_sdk
-from sentry_sdk.integrations.fastapi import FastAPIIntegration
+from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 if settings.sentry_dsn:
-    sentry_sdk.init(dsn=settings.sentry_dsn, integrations=[FastAPIIntegration()])
+    sentry_sdk.init(dsn=settings.sentry_dsn, integrations=[FastApiIntegration()])
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -26,6 +26,12 @@
 | `TON_RPC_URL` | TON RPC endpoint for queries | Yes |
 | `PLATFORM_TREASURY_ADDRESS` | Address receiving 5% platform commssion | Yes |
 | `ENV` | Environment (`development`/`production`/`testing`) | No |
+| `KMS_PROVIDER` | `aws`, `vault`, or `local` | No |
+| `AWS_KMS_KEY_ID` | Key ID for AWS KMS envelope encryption | No |
+| `VAULT_URL` | HashiCorp Vault URL | No |
+| `VAULT_TOKEN` | HashiCorp Vault Token | No |
+| `SENTRY_DSN` | Sentry DSN for exception tracking | No |
+| `PROMETHEUS_ENABLED` | Set to `true` to enable `/metrics` | No |
 
 ---
 
@@ -204,3 +210,25 @@ Services startup order:
 3. Redis
 4. FastAPI Gateway
 5. Workers (parser, copy-trade, bot)
+
+---
+
+## Security & Observability (Phase 9+)
+
+### KMS & Envelope Encryption
+Private keys for proxy wallets are encrypted using Envelope Encryption:
+- The Master Key is stored securely via AWS KMS (`KMS_PROVIDER=aws`) or HashiCorp Vault (`KMS_PROVIDER=vault`).
+- A Data Encryption Key (DEK) is decrypted at application startup and stored in memory.
+- The DEK is used with AES-256-GCM (`cryptography.fernet`) to encrypt/decrypt individual proxy wallet keys in `user_proxy_wallets.encrypted_private_key`.
+- In development mode, `KMS_PROVIDER=local` is used for basic Fernet encryption without remote KMS calls.
+
+### Observability
+- **Sentry**: Integrated across FastAPI gateway, workers, and bot for unhandled exception capture and stack tracing.
+- **Prometheus & Grafana**: 
+  - FastAPI Gateway metrics exposed via `prometheus-fastapi-instrumentator` at `/metrics` (port 8000).
+  - Queue depth metrics (`rabbitmq_queue_depth`) exposed by the ingestion worker (port 8000).
+  - Trade execution latency (`copy_trade_latency_seconds`) exposed by the copy worker (port 8001).
+
+### Resilience Testing
+- **Chaos Testing**: Toxiproxy (`tests/test_chaos.py`) simulates RabbitMQ/PostgreSQL network failures, verifying that asynchronous workers gracefully retry or requeue failed executions.
+- **Load Testing**: Locust (`locustfile.py`) simulates 1000+ concurrent webhook ingests to ensure sub-200ms API latency SLAs.

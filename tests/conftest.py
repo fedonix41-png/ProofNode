@@ -83,3 +83,30 @@ def redis_server():
     
     yield container
     container.stop()
+
+@pytest.fixture(scope="function")
+def mock_dex_service(monkeypatch):
+    """Mocks external network calls to DEX APIs to prevent live HTTP requests during tests."""
+    from backend.app.services.dex import DEXService
+    
+    async def mock_stonfi_route(*args, **kwargs):
+        return {"route": "mock"}
+        
+    async def mock_1inch_quote(*args, **kwargs):
+        return {"toTokenAmount": "1000"}
+        
+    async def mock_1inch_swap_tx(*args, **kwargs):
+        return {"to": "0x123", "data": "0x"}
+        
+    async def mock_jupiter_quote(*args, **kwargs):
+        return {"outAmount": "1000"}
+        
+    async def mock_jupiter_swap_tx(*args, **kwargs):
+        return "mock_base64_tx"
+        
+    monkeypatch.setattr(DEXService, "get_stonfi_route", mock_stonfi_route)
+    monkeypatch.setattr(DEXService, "get_1inch_quote", mock_1inch_quote)
+    monkeypatch.setattr(DEXService, "get_1inch_swap_tx", mock_1inch_swap_tx)
+    monkeypatch.setattr(DEXService, "get_jupiter_quote", mock_jupiter_quote)
+    monkeypatch.setattr(DEXService, "get_jupiter_swap_tx", mock_jupiter_swap_tx)
+    yield

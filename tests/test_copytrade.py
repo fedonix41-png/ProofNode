@@ -14,7 +14,7 @@ from backend.app.worker import process_message
 from backend.app.copy_worker import process_job
 
 @pytest.mark.asyncio
-async def test_copytrade_automated_flow(postgres_server, rabbitmq_server, redis_server):
+async def test_copytrade_automated_flow(postgres_server, rabbitmq_server, redis_server, mock_dex_service):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Create Trader Profile
         profile_payload = {
@@ -146,11 +146,11 @@ async def test_copytrade_automated_flow(postgres_server, rabbitmq_server, redis_
                 assert exec_record is not None
                 assert exec_record["status"] == "SUCCESS"
                 assert exec_record["blockchain"] == "TON"
-                assert exec_record["copy_tx_hash"].startswith("mock_copy_tx_")
+                assert exec_record["copy_tx_hash"].startswith("mock_ton_tx")
                 break
 
 @pytest.mark.asyncio
-async def test_copytrade_1click_flow(postgres_server, rabbitmq_server, redis_server):
+async def test_copytrade_1click_flow(postgres_server, rabbitmq_server, redis_server, mock_dex_service):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Create Trader Profile and subscribe user
         profile_payload = {

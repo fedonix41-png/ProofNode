@@ -8,7 +8,7 @@ from bot.consumer import start_rabbitmq_consumer, stop_rabbitmq_consumer
 from backend.app.config import settings
 
 @pytest.mark.asyncio
-async def test_bot_notification_processing(rabbitmq_server):
+async def test_bot_notification_processing(postgres_server, rabbitmq_server):
     """
     Test that a notification payload in RabbitMQ results in a bot message.
     """
@@ -16,11 +16,18 @@ async def test_bot_notification_processing(rabbitmq_server):
     mock_bot = MagicMock()
     mock_bot.send_message = AsyncMock()
 
-    # 2. Start Consumer
+    # 2. Connect DB and Start Consumer
+    from backend.app.db import db
+    await db.connect()
     conn = await start_rabbitmq_consumer(mock_bot)
     assert conn is not None, "Consumer failed to connect to RabbitMQ"
     
     try:
+        # Insert mock user for premium check
+        async for db_conn in db.get_connection():
+            await db_conn.execute("INSERT INTO users (id, username, is_premium) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", 999111, "testuser", True)
+            break
+            
         # 3. Publish a test payload to RabbitMQ
         channel = await conn.channel()
         payload = {
@@ -65,3 +72,5 @@ async def test_bot_notification_processing(rabbitmq_server):
         
     finally:
         await stop_rabbitmq_consumer(conn)
+        from backend.app.db import db
+        await db.disconnect()
