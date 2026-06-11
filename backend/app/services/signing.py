@@ -37,7 +37,7 @@ def sign_ecdsa(tx_dict: dict, private_key_hex: str) -> str:
         if not private_key_hex.startswith('0x'):
             private_key_hex = '0x' + private_key_hex
         signed_tx = Account.sign_transaction(tx_dict, private_key_hex)
-        return signed_tx.rawTransaction.hex()
+        return signed_tx.raw_transaction.hex() if hasattr(signed_tx, "raw_transaction") else signed_tx.rawTransaction.hex()
     except Exception as e:
         logger.error(f"Failed to sign ECDSA: {e}")
         return ""

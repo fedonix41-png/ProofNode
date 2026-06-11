@@ -25,6 +25,7 @@ def test_solana_signing_math():
     from solders.message import MessageV0 # type: ignore
     from solders.instruction import Instruction # type: ignore
     from solders.pubkey import Pubkey # type: ignore
+    from solders.hash import Hash # type: ignore
 
     kp = Keypair()
     pk_bytes = bytes(kp)
@@ -33,7 +34,7 @@ def test_solana_signing_math():
     # Create a mock VersionedTransaction bytes
     # Just a simple instruction to sign
     ix = Instruction(Pubkey.default(), b"mock", [])
-    msg = MessageV0.try_compile(pubkey, [ix], [], Pubkey.default())
+    msg = MessageV0.try_compile(pubkey, [ix], [], Hash.default())
     tx = VersionedTransaction(msg, [kp])
     
     tx_bytes = bytes(tx)
