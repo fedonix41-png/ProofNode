@@ -33,6 +33,12 @@ class ProxyWalletDepositRequest(BaseModel):
     proxy_wallet_id: UUID
     amount: Decimal = Field(..., gt=0)
 
+class MonitoredWalletCreateRequest(BaseModel):
+    user_id: int
+    blockchain: str = Field(..., pattern="^(TON|BASE|SOL)$")
+    address: str = Field(..., max_length=256)
+    label: Optional[str] = None
+
 # Endpoints
 @router.post("/sss/register", status_code=status.HTTP_201_CREATED)
 async def register_sss_share(payload: SSSRegisterRequest):
@@ -141,3 +147,69 @@ async def deposit_proxy_wallet(payload: ProxyWalletDepositRequest):
                 detail="Proxy wallet not found."
             )
         return dict(row)
+
+@router.post("/monitor", status_code=status.HTTP_201_CREATED)
+async def monitor_wallet(payload: MonitoredWalletCreateRequest):
+    async for conn in db.get_connection():
+        # Ensure user exists
+        await conn.execute(
+            "INSERT INTO users (id, username, is_premium) VALUES ($1, $2, FALSE) ON CONFLICT (id) DO NOTHING",
+            payload.user_id, f"user_{payload.user_id}"
+        )
+        
+        # Check limit
+        user = await conn.fetchrow("SELECT is_premium FROM users WHERE id = $1", payload.user_id)
+        if not user["is_premium"]:
+            count = await conn.fetchval("SELECT COUNT(*) FROM monitored_wallets WHERE user_id = $1", payload.user_id)
+            if count >= 3:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Free users can only monitor up to 3 wallets.")
+                
+        try:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO monitored_wallets (user_id, blockchain, address, label)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id, user_id, blockchain, address, label, push_enabled, created_at
+                """,
+                payload.user_id, payload.blockchain, payload.address, payload.label
+            )
+            return dict(row)
+        except Exception as e:
+            logger.error(f"Error creating monitored wallet: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to monitor wallet: {e}"
+            )
+
+@router.get("/tracker/stats", status_code=status.HTTP_200_OK)
+async def get_tracker_stats(user_id: int):
+    async for conn in db.get_connection():
+        wallets = await conn.fetch(
+            "SELECT address, blockchain, label FROM monitored_wallets WHERE user_id = $1",
+            user_id
+        )
+        
+        results = []
+        for w in wallets:
+            address = w["address"]
+            txs = await conn.fetch(
+                "SELECT tx_type, usd_value FROM wallet_transactions WHERE wallet_address = $1",
+                address
+            )
+            
+            pnl_usd = Decimal(0)
+            if txs:
+                for tx in txs:
+                    if tx["tx_type"] == "SELL" and tx["usd_value"]:
+                        pnl_usd += tx["usd_value"]
+                    elif tx["tx_type"] == "BUY" and tx["usd_value"]:
+                        pnl_usd -= tx["usd_value"]
+                        
+            results.append({
+                "blockchain": w["blockchain"],
+                "address": address,
+                "label": w["label"],
+                "unrealized_pnl_usd": str(pnl_usd)
+            })
+            
+        return {"monitored_wallets": results}

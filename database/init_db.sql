@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS trader_profiles (
     admin_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(100) NOT NULL,
     description TEXT,
+    category VARCHAR(50),
     is_verified BOOLEAN DEFAULT FALSE,
     public_slug VARCHAR(50) UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

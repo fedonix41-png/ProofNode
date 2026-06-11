@@ -1,7 +1,1 @@
-{
-  "plan": ".omo/plans/proofnode_phase5.md",
-  "active_checkbox": "DONE",
-  "subagents": [],
-  "artifacts": [],
-  "cleanup": ["docker compose down -v completed"]
-}
+{"plan": ".omo/plans/fix_shortcomings_pre_phase6.md", "active_checkbox": "Backend: Add POST /api/traders/{id}/wallets endpoint", "subagents": [], "artifacts": [], "cleanup_items": []}

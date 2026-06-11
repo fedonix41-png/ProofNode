@@ -9,7 +9,7 @@ import redis.asyncio as aioredis
 from backend.app.config import settings
 from backend.app.db import db
 from backend.app.schemas import TonWebhookPayload, SolWebhookPayload, EvmWebhookPayload
-from backend.app.routers import traders, subscriptions, wallets, copytrade
+from backend.app.routers import traders, subscriptions, wallets, copytrade, users, signals
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -80,6 +80,8 @@ app.include_router(traders.router)
 app.include_router(subscriptions.router)
 app.include_router(wallets.router)
 app.include_router(copytrade.router)
+app.include_router(users.router)
+app.include_router(signals.router)
 
 # Health endpoint
 @app.get("/health", status_code=status.HTTP_200_OK)

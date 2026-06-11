@@ -71,7 +71,7 @@ async def verify_payment(payload: VerificationRequest):
             
         # Get tariff
         tariff = await conn.fetchrow(
-            "SELECT duration_days, trader_profile_id FROM tariffs WHERE id = $1", payload.tariff_id
+            "SELECT duration_days, trader_profile_id, price_crypto, currency FROM tariffs WHERE id = $1", payload.tariff_id
         )
         if not tariff:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tariff not found")
@@ -95,6 +95,15 @@ async def verify_payment(payload: VerificationRequest):
         # Calculate expiry
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(days=tariff["duration_days"])
+        
+        # Platform Commission Calculation (5%)
+        platform_fee_percent = Decimal("0.05")
+        if tariff["price_crypto"]:
+            gross_amount = tariff["price_crypto"]
+            platform_fee = gross_amount * platform_fee_percent
+            trader_net = gross_amount - platform_fee
+            logger.info(f"Payment verified: Gross {gross_amount} {tariff['currency']}, Platform Fee: {platform_fee}, Trader Net: {trader_net}")
+            # TODO: Record trader_net to the trader's balance in the DB ledger
         
         # Generate Invite Link
         invite_link = f"https://t.me/+mock_invite_link_{payload.user_id}"

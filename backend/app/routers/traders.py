@@ -23,6 +23,10 @@ class TraderWalletCreate(BaseModel):
     blockchain: str = Field(..., pattern="^(TON|BASE|SOL)$")
     address: str = Field(..., max_length=256)
 
+class TraderWalletCreatePath(BaseModel):
+    blockchain: str = Field(..., pattern="^(TON|BASE|SOL)$")
+    address: str = Field(..., max_length=256)
+
 class TariffCreate(BaseModel):
     trader_profile_id: UUID
     duration_days: int = Field(..., gt=0)
@@ -58,6 +62,20 @@ async def create_trader_profile(payload: TraderProfileCreate):
                 detail=f"Slug '{payload.public_slug}' might already be taken or invalid payload: {e}"
             )
 
+@router.get("", status_code=status.HTTP_200_OK)
+async def list_traders(category: Optional[str] = None):
+    async for conn in db.get_connection():
+        query = "SELECT id, title, description, category, is_verified, public_slug, created_at FROM trader_profiles"
+        args = []
+        if category:
+            query += " WHERE category = $1"
+            args.append(category)
+        
+        query += " ORDER BY created_at DESC"
+        
+        rows = await conn.fetch(query, *args)
+        return [dict(row) for row in rows]
+
 @router.post("/wallets", status_code=status.HTTP_201_CREATED)
 async def add_trader_wallet(payload: TraderWalletCreate):
     async for conn in db.get_connection():
@@ -82,6 +100,16 @@ async def add_trader_wallet(payload: TraderWalletCreate):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Wallet for {payload.blockchain} address {payload.address} already registered: {e}"
             )
+
+@router.post("/{id}/wallets", status_code=status.HTTP_201_CREATED)
+async def add_trader_wallet_by_id(id: UUID, payload: TraderWalletCreatePath):
+    return await add_trader_wallet(
+        TraderWalletCreate(
+            trader_profile_id=id,
+            blockchain=payload.blockchain,
+            address=payload.address
+        )
+    )
 
 @router.post("/tariffs", status_code=status.HTTP_201_CREATED)
 async def create_tariff(payload: TariffCreate):

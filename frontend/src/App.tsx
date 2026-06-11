@@ -24,6 +24,21 @@ function App() {
       if (bgColor) {
         document.body.style.backgroundColor = bgColor;
       }
+      
+      const startParam = window.Telegram.WebApp.initDataUnsafe?.start_param;
+      if (startParam) {
+        console.log("App opened with start param:", startParam);
+        if (startParam.startsWith('ref_')) {
+          // Track referral
+          console.log("Referral link activated:", startParam);
+        } else if (startParam.startsWith('copy_')) {
+          // Route to cabinet for copy trade setup
+          setActiveTab('cabinet');
+        } else if (startParam.startsWith('trader_')) {
+          // Route to radar for trader view
+          setActiveTab('radar');
+        }
+      }
     }
   }, []);
 

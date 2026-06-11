@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { Key, Settings, Zap, Copy, CheckCircle2 } from 'lucide-react';
 import { splitKey } from '../utils/sss';
+import { Referrals } from './Referrals';
 
 export const Cabinet: React.FC = () => {
   const [pkInput, setPkInput] = useState('');
   const [share3, setShare3] = useState('');
   const [isCopied, setIsCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isAuthor, setIsAuthor] = useState(true); // Mocking that user is an author for demo purposes
+  const [signalToken, setSignalToken] = useState('');
+  const [signalType, setSignalType] = useState('BUY');
 
   const handleSetupCopying = async () => {
     if (!pkInput) return;
@@ -121,12 +125,66 @@ export const Cabinet: React.FC = () => {
         )}
       </div>
 
-      <div className="glass-card flex flex-col gap-3 opacity-50 pointer-events-none">
-        <h3 className="text-lg font-bold">Author Setup (Coming Soon)</h3>
-        <p className="text-hint text-sm">Register your channel, verify your wallet, and set subscription prices.</p>
-        <button className="btn-secondary w-full text-left">Connect Channel</button>
+      <div className={`glass-card flex flex-col gap-3 ${isAuthor ? '' : 'opacity-50 pointer-events-none'}`}>
+        <h3 className="text-lg font-bold">Author Setup / Signals</h3>
+        <p className="text-hint text-sm">Register your channel, verify your wallet, or post a new trade signal.</p>
+        
+        {isAuthor && (
+          <div className="mt-2 flex flex-col gap-2 p-3 bg-black/20 rounded-xl border border-white/5">
+            <h4 className="text-sm font-semibold mb-1">Broadcast Signal</h4>
+            <input 
+              type="text" 
+              placeholder="Token Address" 
+              className="input-glass text-sm"
+              value={signalToken}
+              onChange={(e) => setSignalToken(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button 
+                className={`flex-1 py-2 text-sm font-bold rounded-lg ${signalType === 'BUY' ? 'bg-[var(--accent-green)] text-black' : 'bg-white/10 text-hint'}`}
+                onClick={() => setSignalType('BUY')}
+              >
+                BUY
+              </button>
+              <button 
+                className={`flex-1 py-2 text-sm font-bold rounded-lg ${signalType === 'SELL' ? 'bg-[var(--accent-red)] text-black' : 'bg-white/10 text-hint'}`}
+                onClick={() => setSignalType('SELL')}
+              >
+                SELL
+              </button>
+            </div>
+            <button 
+              className="btn-primary mt-1" 
+              disabled={!signalToken}
+              onClick={async () => {
+                try {
+                  await fetch('/api/signals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      trader_profile_id: '00000000-0000-0000-0000-000000000000', // Mock UUID
+                      token_address: signalToken,
+                      blockchain: 'TON',
+                      type: signalType
+                    })
+                  });
+                  alert('Signal broadcasted successfully!');
+                  setSignalToken('');
+                } catch (e) {
+                  alert('Failed to broadcast signal');
+                }
+              }}
+            >
+              Publish Signal
+            </button>
+          </div>
+        )}
+        
+        <button className="btn-secondary w-full text-left mt-2">Connect Channel</button>
         <button className="btn-secondary w-full text-left">Set Tariff Pricing</button>
       </div>
+
+      <Referrals />
     </div>
   );
 };

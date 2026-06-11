@@ -10,6 +10,7 @@ const MOCK_WALLETS = [
 export const Radar: React.FC = () => {
   const [wallets, setWallets] = useState(MOCK_WALLETS);
   const [selectedWallet, setSelectedWallet] = useState<number | null>(null);
+  const [activeCategory, setActiveCategory] = useState('All');
 
   const togglePush = (id: number) => {
     if (window.Telegram?.WebApp?.HapticFeedback) {
@@ -38,7 +39,23 @@ export const Radar: React.FC = () => {
         </button>
       </div>
 
-      <div className="flex flex-col gap-3 mt-2">
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide hide-scrollbars">
+        {['All', 'Meme', 'Bluechip', 'Degen', 'Volume'].map(cat => (
+          <button 
+            key={cat} 
+            className={`px-3 py-1.5 text-xs font-semibold rounded-full whitespace-nowrap transition-colors ${
+              activeCategory === cat 
+                ? 'bg-[var(--accent-blue)] text-white' 
+                : 'bg-white/5 border border-white/10 text-hint hover:text-white'
+            }`}
+            onClick={() => setActiveCategory(cat)}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-3 mt-1">
         {wallets.map((wallet) => (
           <div key={wallet.id} className="glass-card flex flex-col gap-3" onClick={() => setSelectedWallet(wallet.id)}>
             <div className="flex justify-between items-start">
