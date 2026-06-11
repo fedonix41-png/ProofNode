@@ -1,160 +1,207 @@
-# ASW Plan: ProofNode Phase 6 - Live Blockchain & DEX Aggregator Integrations
+# ASW Plan: ProofNode Phase 6 - Webhook Security & Core CRM Features
 
 ## TL;DR
-Replace the current sandbox mock layers with production-grade blockchain integrations. Implement cryptographic webhook signature verification (Helius for Solana, Alchemy for Base, TonAPI for TON), establish connection pools to live RPC nodes for balance caching and paywall confirmation, connect to real DEX aggregator APIs (Jupiter V6, 1inch, Ston.fi) to retrieve swap transaction payloads, and execute real transaction signing and broadcasting for KMS-encrypted proxy wallets.
+Implement security-critical webhook signature verification for production readiness. Build the missing CRM features from the original spec: manual signal creation UI, public trader profiles with deep links, platform commission logic, and freemium limits for the Smart Money Tracker.
 
 ---
 
 ## Objective
-To enable actual on-chain transaction execution and verification:
-1. Replace gateway signature stubs with real header validation (HMAC-SHA256 and API tokens) matching each provider's spec.
-2. Integrate real blockchain RPC client wrappers for TON (Toncenter/TonAPI RPC), Solana (JSON-RPC), and Base (Web3.py) to read proxy wallet balances and verify subscription payment tx hashes on-chain.
-3. Replace the mock quote router in `dex.py` with live API integrations:
-   - **Solana**: Jupiter V6 API to fetch swap quotes and serialized swap transactions.
-   - **Base**: 1inch Swap API for EVM routing and transaction payloads.
-   - **TON**: Ston.fi / DeDust SDK or HTTP API to fetch jetton routes and transaction parameters.
-4. Implement real cryptographic transaction serialization, signing, and broadcasting for proxy wallets (Ed25519 for TON/Solana, ECDSA for Base).
-5. Build an integration test suite validating signing maths and mock DEX responses.
+To close the gap between current implementation and the original ТЗ:
+1. Replace webhook signature stubs with real cryptographic verification (HMAC-SHA256 for Alchemy, header tokens for Helius and TonAPI).
+2. Build RPC connection pools for reading wallet balances and verifying on-chain subscription payments.
+3. Implement the "Honest Trader" CRM interface: manual signal creation with entry price capture, signal closing with PnL calculation, and automatic profile statistics.
+4. Create public trader profile pages accessible via deep links (`t.me/AlphaHubBot/app?startapp=profile_{slug}`).
+5. Add platform commission (5%) deduction from subscription payments.
+6. Implement freemium limits: 3 wallets for free users, 10-minute push notification delay for non-premium.
 
 ---
 
 ## Non-Goals
-- Connecting to mainnets for development tests. All local testing will use testnets (TON Testnet, Solana Devnet, Base Sepolia) or recorded mock API snapshots.
-- AWS KMS hardware HSM integration (reserved for Phase 7).
-- Modifying frontend TMA components (Phase 4).
+- DEX aggregator integrations for automated copy-trading (reserved for Phase 8).
+- Transaction signing and broadcasting (reserved for Phase 8).
+- AWS KMS hardware HSM integration (reserved for Phase 9).
+- Frontend TMA redesign.
 
 ---
 
 ## Decision Summary
-- **Python Blockchain SDKs**:
-  - EVM: `web3` (version 6.x/7.x) for Base.
-  - Solana: `solana` (version 0.30+) and `solders` for transaction serialization.
-  - TON: Custom async HTTP RPC client matching TON JSON-RPC (Toncenter v2 API) to avoid brittle third-party python-ton library dependencies.
-- **Webhook Authenticity Verification**:
-  - Base (Alchemy): HMAC-SHA256 signature verification using the request body and the secret signing key.
-  - Solana (Helius): Authorization header matching Helius webhook secret.
-  - TON (TonAPI): Signature checking or headers authentication tokens.
-- **DEX API Integrations**:
-  - Jupiter: Call `https://quote-api.jup.ag/v6/quote` and then `https://quote-api.jup.ag/v6/swap` to get the base64-encoded transaction, deserialize it via `VersionedTransaction.deserialize` in `solders`, sign it with the proxy wallet's keypair, and broadcast it.
-  - 1inch: Call `https://api.1inch.dev/swap/v6.0/8453/swap` using a platform API token to fetch the transaction payload (`to`, `data`, `value`, `gas`), build the raw transaction in Web3.py, sign it with the ECDSA private key, and broadcast it using `eth.send_raw_transaction`.
-  - Ston.fi: Build swap transactions matching Ston.fi router call payloads for TON, sending it via Jetton transfer payload or TON message.
+- **Webhook Verification**:
+  - Alchemy (Base): HMAC-SHA256 of raw request body using `ALCHEMY_WEBHOOK_SECRET`, compare to `x-alchemy-signature` header.
+  - Helius (Solana): Validate `Authorization` header equals `HELIUS_WEBHOOK_SECRET`.
+  - TonAPI (TON): Validate signature header or API token matching `TONAPI_WEBHOOK_SECRET`.
+- **RPC Integration**:
+  - TON: Async HTTP client to Toncenter v2 API for balance queries.
+  - Solana: JSON-RPC client to Helius RPC endpoint.
+  - Base: Web3.py client to Alchemy/Base RPC.
+- **Signal CRM**:
+  - Trader manually creates signal: token address, direction (BUY/SELL), timestamp.
+  - Backend captures current DEX price via RPC call at signal creation time.
+  - Trader closes signal: backend captures exit price, calculates PnL percentage.
+  - Statistics aggregate to `trader_pnl_history` TimescaleDB table.
+- **Public Profiles**:
+  - Each `trader_profile` has unique `public_slug`.
+  - Frontend parses `startapp` query param to navigate to profile view.
+  - Profile displays cumulative ROI, winrate, signal history chart.
+- **Monetization**:
+  - Commission: When subscription payment verified, calculate 95% to trader, 5% to platform treasury address.
+  - Freemium: Middleware checks `users.is_premium` before allowing >3 monitored wallets and before queuing instant push notifications.
 
 ---
 
 ## Files to Edit & Create
 
 ### [MODIFY] Configuration & Dependencies
-- [requirements.txt](file:///home/ozzy/Документы/ProofNode/backend/requirements.txt) - Add `web3`, `solana`, `solders`.
-- [config.py](file:///home/ozzy/Документы/ProofNode/backend/app/config.py) - Declare variables: `SOLANA_RPC_URL`, `BASE_RPC_URL`, `TON_RPC_URL`, `HELIUS_WEBHOOK_SECRET`, `ALCHEMY_WEBHOOK_SECRET`, `TONAPI_WEBHOOK_SECRET`, `ONEINCH_API_KEY`.
+- [requirements.txt](file:///home/ozzy/Документы/ProofNode/backend/requirements.txt) - Add `web3>=6.0.0`, `httpx` (for async HTTP RPC).
+- [config.py](file:///home/ozzy/Документы/ProofNode/backend/app/config.py) - Add `ALCHEMY_WEBHOOK_SECRET`, `HELIUS_WEBHOOK_SECRET`, `TONAPI_WEBHOOK_SECRET`, `PLATFORM_TREASURY_ADDRESS`, `SOLANA_RPC_URL`, `BASE_RPC_URL`, `TON_RPC_URL`.
 
 ### [MODIFY] Webhook Gateway
-- [main.py](file:///home/ozzy/Документы/ProofNode/backend/app/main.py) - Implement cryptographic header verification middleware/functions for `/gateway/ton`, `/gateway/sol`, and `/gateway/evm`.
+- [main.py](file:///home/ozzy/Документы/ProofNode/backend/app/main.py) - Implement signature verification functions for each gateway endpoint. Reject invalid signatures with 401.
 
-### [MODIFY] Services
-- [dex.py](file:///home/ozzy/Документы/ProofNode/backend/app/services/dex.py) - Replace simulated quotes and dummy signers with live API fetches (Jupiter, 1inch, Ston.fi), real keypair initialization, transaction signing, and RPC broadcasting.
+### [NEW] RPC Clients
+- [rpc.py](file:///home/ozzy/Документы/ProofNode/backend/app/services/rpc.py) - Async connection pool wrappers for TON, Solana, Base RPC calls. Methods: `get_wallet_balance()`, `get_token_price()`, `verify_transaction()`.
 
 ### [MODIFY] Routers
-- [subscriptions.py](file:///home/ozzy/Документы/ProofNode/backend/app/routers/subscriptions.py) - Implement on-chain validation for subscription payments by checking the transaction confirmation, receiver address, and value on testnets.
-- [wallets.py](file:///home/ozzy/Документы/ProofNode/backend/app/routers/wallets.py) - Implement on-chain balance querying for proxy wallets.
+- [subscriptions.py](file:///home/ozzy/Документы/ProofNode/backend/app/routers/subscriptions.py) - Use RPC client to verify payment transaction on-chain. Calculate and log 5% platform commission.
+- [wallets.py](file:///home/ozzy/Документы/ProofNode/backend/app/routers/wallets.py) - Check freemium limit (3 wallets) before allowing new monitored wallet. Fetch real balance via RPC.
+- [traders.py](file:///home/ozzy/Документы/ProofNode/backend/app/routers/traders.py) - Add endpoint `POST /traders/me/signals` for signal creation. Add endpoint `POST /traders/me/signals/{id}/close`. Add endpoint `GET /traders/{slug}` for public profile.
+
+### [MODIFY] Frontend
+- [Radar.tsx](file:///home/ozzy/Документы/ProofNode/frontend/src/components/Radar.tsx) - Display real PnL from API. Show premium badge and wallet limit warning.
+- [Leaderboard.tsx](file:///home/ozzy/Документы/ProofNode/frontend/src/components/Leaderboard.tsx) - Add filter chips (TON, SOL, BASE, High Winrate). Fetch real trader data.
+- [Cabinet.tsx](file:///home/ozzy/Документы/ProofNode/frontend/src/components/Cabinet.tsx) - Add "Author Tools" section with signal creation form. Add channel verification checklist.
+- [App.tsx](file:///home/ozzy/Документы/ProofNode/frontend/src/App.tsx) - Parse `startapp` query param to navigate to public profile view.
+
+### [NEW] Frontend Components
+- [TraderProfile.tsx](file:///home/ozzy/Документы/ProofNode/frontend/src/components/TraderProfile.tsx) - Public profile view with ROI chart, signal history, subscribe button.
+
+### [MODIFY] Bot Consumer
+- [consumer.py](file:///home/ozzy/Документы/ProofNode/bot/consumer.py) - Check `users.is_premium` before sending instant notification. Queue delayed notifications for free users.
 
 ### [NEW] Testing Suite
-- [test_live_integrations.py](file:///home/ozzy/Документы/ProofNode/tests/test_live_integrations.py) - Tests validating transaction signing engines, webhook signature math, and mock-stubbed DEX response payloads.
+- [test_crm_features.py](file:///home/ozzy/Документы/ProofNode/tests/test_crm_features.py) - Tests for signal creation, PnL calculation, public profile access, commission calculation.
 
 ---
 
 ## TODOs
 
-- [ ] **Dependencies and Settings Setup**
-  - Add `web3>=6.0.0` and `solana>=0.30.0` to `backend/requirements.txt`.
-  - Install dependencies: `uv pip install -r backend/requirements.txt`.
-  - Define RPC URLs and webhook secrets in `backend/app/config.py`.
-  - *Commit guidance*: "infra: add blockchain SDKs dependencies and RPC configuration settings"
+- [ ] **Dependencies and Configuration**
+  - Add `web3>=6.0.0` and `httpx` to `backend/requirements.txt`.
+  - Install: `uv pip install -r backend/requirements.txt`.
+  - Define webhook secrets and RPC URLs in `backend/app/config.py`.
+  - *Commit guidance*: "infra: add RPC client dependencies and security configuration"
 
-- [ ] **Cryptographic Webhook Verification**
-  - Implement signature checks in `backend/app/main.py`:
-    - Alchemy (EVM): Compute SHA256 HMAC of raw request body using `ALCHEMY_WEBHOOK_SECRET` and compare it to the `x-alchemy-signature` header.
-    - Helius (Solana): Validate that the `Authorization` header matches the `HELIUS_WEBHOOK_SECRET`.
-    - TonAPI (TON): Validate header tokens against `TONAPI_WEBHOOK_SECRET`.
+- [ ] **Webhook Signature Verification**
+  - Implement in `backend/app/main.py`:
+    - Alchemy: HMAC-SHA256 of request body, compare to `x-alchemy-signature` header (lowercase hex).
+    - Helius: Compare `Authorization` header to secret.
+    - TonAPI: Validate signature/token header.
+  - Write unit tests for each verification function.
   - *Commit guidance*: "feat: implement cryptographic webhook signature validation"
 
-- [ ] **On-chain Payment Verification & Balance Checking**
+- [ ] **RPC Client Pool**
+  - Create `backend/app/services/rpc.py` with async HTTP clients.
+  - Implement `get_wallet_balance(blockchain, address)`.
+  - Implement `get_token_price(blockchain, token_address)`.
+  - Implement `verify_transaction(blockchain, tx_hash, expected_receiver, expected_amount)`.
+  - Add connection pooling and timeout handling.
+  - *Commit guidance*: "feat: add async RPC client pool for blockchain queries"
+
+- [ ] **On-chain Payment Verification**
   - Update `backend/app/routers/subscriptions.py`:
-    - Connect to the RPC node (Web3.py for Base, Solana RPC for SOL, TON JSON-RPC for TON).
-    - Query transaction details by hash. Assert that the transaction was confirmed, the receiver address matches the merchant/trader wallet, and the token value matches the tariff pricing.
-  - Update `backend/app/routers/wallets.py` to fetch actual balances of proxy wallets from the network.
-  - *Commit guidance*: "feat: connect paywall payment confirmation to live blockchain RPCs"
+    - Replace mock verification with RPC `verify_transaction()`.
+    - Calculate 5% commission, log to `subscription_payments` table.
+  - *Commit guidance*: "feat: connect subscription payment verification to live RPC"
 
-- [ ] **Base/EVM Signing & 1inch DEX Integration**
-  - In `backend/app/services/dex.py`:
-    - Implement the 1inch swap quote request.
-    - Deserialize private key using Web3.py.
-    - Build, sign, and broadcast the Base transaction.
-  - *Commit guidance*: "feat: implement 1inch routing and EVM transaction signing"
+- [ ] **Freemium Limits**
+  - Update `backend/app/routers/wallets.py`:
+    - Check `users.is_premium` before allowing wallet creation.
+    - Reject with 402 if limit exceeded (3 for free, unlimited for premium).
+  - Update `bot/consumer.py`:
+    - Check premium status before instant notification.
+    - Queue to `delayed_notifications` for free users (10-minute delay).
+  - *Commit guidance*: "feat: implement freemium wallet limits and notification delays"
 
-- [ ] **Solana Signing & Jupiter DEX Integration**
-  - In `backend/app/services/dex.py`:
-    - Fetch the swap transaction base64 payload from Jupiter V6.
-    - Parse using `VersionedTransaction.deserialize` from `solders`.
-    - Sign with the proxy wallet's Ed25519 private key.
-    - Broadcast using Solana RPC (`send_transaction`).
-  - *Commit guidance*: "feat: implement jupiter routing and solana transaction signing"
+- [ ] **Signal CRM - Backend**
+  - Add `POST /traders/me/signals`: accept token_address, direction. Capture current price via RPC. Create signal record.
+  - Add `POST /traders/me/signals/{id}/close`: capture exit price, calculate PnL, update signal status.
+  - Add `GET /traders/{slug}`: return public profile data (ROI, winrate, recent signals).
+  - *Commit guidance*: "feat: add signal creation and closing endpoints for trader CRM"
 
-- [ ] **TON Signing & Ston.fi DEX Integration**
-  - In `backend/app/services/dex.py`:
-    - Implement swap payload serialization for TON (Ston.fi jetton swap parameters).
-    - Construct external message, sign using Ed25519, and broadcast to the TON RPC.
-  - *Commit guidance*: "feat: implement stonfi routing and TON transaction signing"
+- [ ] **Signal CRM - Frontend**
+  - Update `Cabinet.tsx` with "Author Tools" section:
+    - Form: token address input, BUY/SELL toggle, "Open Signal" button.
+    - List of open signals with "Close" button.
+  - *Commit guidance*: "feat: add signal management UI to trader cabinet"
 
-- [ ] **Integration Testing**
-  - Create `tests/test_live_integrations.py` to test signature matching and transaction builder math using VCR.py or standard mocks.
-  - Execute test suite: `PYTHONPATH=. uv run pytest tests/test_live_integrations.py -v`.
-  - *Commit guidance*: "test: add tests for webhook verification and blockchain signing"
+- [ ] **Public Trader Profiles**
+  - Create `TraderProfile.tsx` component:
+    - ROI chart (SVG sparkline or canvas).
+    - Winrate badge, cumulative PnL.
+    - List of closed signals with individual PnL.
+    - Tariff cards with subscribe buttons.
+  - Update `App.tsx` to parse `startapp=profile_{slug}` and route to profile.
+  - *Commit guidance*: "feat: add public trader profile view with deep link routing"
+
+- [ ] **Leaderboard Filters**
+  - Update `Leaderboard.tsx`:
+    - Add filter chips: "All", "TON", "SOL", "BASE", "High Winrate".
+    - Fetch filtered data from API.
+  - Add backend filter support in `GET /traders` endpoint.
+  - *Commit guidance*: "feat: add blockchain and winrate filters to marketplace"
+
+- [ ] **Integration Tests**
+  - Create `tests/test_crm_features.py`:
+    - Test signal creation with mocked price capture.
+    - Test PnL calculation on close.
+    - Test commission calculation.
+    - Test freemium limit enforcement.
+  - Run: `PYTHONPATH=. uv run pytest tests/test_crm_features.py -v`.
+  - *Commit guidance*: "test: add integration tests for CRM and monetization features"
 
 ---
 
 ## QA Scenarios
 
-### Scenario 1: Webhook Signature Rejection
+### Scenario 1: Webhook Rejection
 - **Command**:
-  - Spin up FastAPI gateway:
-    ```bash
-    uv run uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 &
-    GATEWAY_PID=$!
-    sleep 2
-    ```
-  - Send request with an invalid signature header:
-    ```bash
-    curl -X POST -H "Content-Type: application/json" \
-         -H "x-alchemy-signature: invalid_sig" \
-         -d '{"event": "test"}' \
-         http://127.0.0.1:8000/gateway/evm
-    ```
-  - Kill gateway:
-    ```bash
-    kill $GATEWAY_PID
-    ```
-- **Expected Evidence**:
-  - The HTTP POST request returns `401 Unauthorized` or `403 Forbidden` due to invalid signature math.
+  ```bash
+  uv run uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 &
+  sleep 2
+  curl -X POST -H "Content-Type: application/json" \
+       -H "x-alchemy-signature: invalid_signature" \
+       -d '{"tx_hash": "0xtest"}' \
+       http://127.0.0.1:8000/gateway/evm
+  ```
+- **Expected Evidence**: Returns `401 Unauthorized` or `403 Forbidden`.
 
-### Scenario 2: Transaction Signing Test
+### Scenario 2: Signal Creation and PnL
 - **Command**:
-  - Run the live integrations pytest suite:
-    ```bash
-    PYTHONPATH=. uv run pytest tests/test_live_integrations.py -v
-    ```
-- **Expected Evidence**:
-  - All test cases asserting transaction encoding, key generation, and signing verification pass successfully.
+  ```bash
+  PYTHONPATH=. uv run pytest tests/test_crm_features.py::test_signal_pnl_calculation -v
+  ```
+- **Expected Evidence**: Test passes, showing PnL calculated correctly from mocked entry/exit prices.
+
+### Scenario 3: Freemium Wallet Limit
+- **Command**:
+  ```bash
+  PYTHONPATH=. uv run pytest tests/test_crm_features.py::test_freemium_wallet_limit -v
+  ```
+- **Expected Evidence**: Test passes, rejecting 4th wallet for non-premium user.
+
+### Scenario 4: Public Profile Deep Link
+- **Command**:
+  - Open browser/Telegram and navigate to: `t.me/AlphaHubBot/app?startapp=profile_crypto-wizard`
+- **Expected Evidence**: TMA opens on TraderProfile view for slug `crypto-wizard`.
 
 ### Cleanup Receipt
-- **Command**:
-  - Standard process check.
-- **Expected Evidence**:
-  - No orphaned background tasks.
+- **Command**: `docker compose down -v` (if running services)
+- **Expected Evidence**: Containers stopped and volumes removed.
 
 ---
 
 ## Privacy & Package Safeguards
-- Ensure all test keys/seeds are mock credentials and never committed to git.
-- Secure RPC nodes endpoints behind HTTPS and avoid logging plain API keys in debug screens.
+- Never log webhook secrets or API keys.
+- Filter sensitive data from Sentry breadcrumbs if integrated later.
+- Use environment variables for all secrets, never hardcode.
 
-Next: `start-work proofnode_phase6`
+Next: `start-work proofnode_phase7`
