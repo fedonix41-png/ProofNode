@@ -61,20 +61,61 @@ async def execute_automated_trade(conn, job: dict) -> None:
         )
         return
 
-    # 4. Request DEX Swap Quote
-    quote = dex_service.get_swap_quote(blockchain, token_in, token_out, amount_in)
+    # 4. Request DEX Swap Quote & Execute with Retry
+    max_attempts = 3
+    base_slippage = 100
+    tx_hash = None
+    last_error = None
     
-    # 5. Sign and Broadcast
-    try:
-        tx_hash = dex_service.sign_and_broadcast_transaction(blockchain, quote, private_key)
-    except Exception as e:
-        logger.error(f"DEX broadcast failed: {e}")
+    for attempt in range(max_attempts):
+        slippage = base_slippage * (attempt + 1)
+        try:
+            if blockchain == "SOL":
+                quote = await dex_service.get_jupiter_quote(token_in, token_out, int(amount_in), slippage)
+                if not quote:
+                    raise ValueError("Failed to fetch Jupiter quote")
+                unsigned_tx = await dex_service.get_jupiter_swap_tx(quote, wallet["address"])
+                if not unsigned_tx:
+                    raise ValueError("Failed to get Jupiter unsigned tx")
+                pk_bytes = bytes.fromhex(private_key) if isinstance(private_key, str) else private_key
+                tx_hash = await dex_service.sign_and_send_solana_tx(unsigned_tx, pk_bytes)
+                
+            elif blockchain == "BASE":
+                quote = await dex_service.get_1inch_quote(token_in, token_out, str(int(amount_in)))
+                if not quote:
+                    raise ValueError("Failed to fetch 1inch quote")
+                # 1inch expects slippage as a percentage (e.g. 1 for 1%)
+                slippage_percent = slippage // 100
+                unsigned_tx = await dex_service.get_1inch_swap_tx(token_in, token_out, str(int(amount_in)), wallet["address"], slippage_percent)
+                if not unsigned_tx:
+                    raise ValueError("Failed to get 1inch unsigned tx")
+                tx_hash = await dex_service.sign_and_send_base_tx(unsigned_tx, private_key)
+                
+            elif blockchain == "TON":
+                quote = await dex_service.get_stonfi_route(token_in, token_out, str(int(amount_in)))
+                if not quote:
+                    raise ValueError("Failed to fetch Stonfi quote")
+                unsigned_tx = await dex_service.build_stonfi_swap_msg(quote, wallet["address"])
+                if not unsigned_tx:
+                    raise ValueError("Failed to build Stonfi unsigned tx")
+                tx_hash = await dex_service.sign_and_send_ton_tx(unsigned_tx, private_key)
+            else:
+                raise ValueError(f"Unsupported blockchain: {blockchain}")
+
+            if tx_hash:
+                break
+        except Exception as e:
+            last_error = str(e)
+            logger.warning(f"Swap attempt {attempt+1} failed with slippage {slippage} bps: {e}")
+
+    if not tx_hash:
+        logger.error(f"DEX broadcast failed after {max_attempts} attempts. Last error: {last_error}")
         await conn.execute(
             """
             INSERT INTO copy_trade_executions (user_id, trader_tx_hash, status, error_message, blockchain)
             VALUES ($1, $2, 'FAILED', $3, $4)
             """,
-            user_id, trader_tx_hash, f"DEX transaction broadcast failed: {e}", blockchain
+            user_id, trader_tx_hash, f"DEX transaction broadcast failed: {last_error}", blockchain
         )
         return
 
