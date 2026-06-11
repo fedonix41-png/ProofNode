@@ -62,19 +62,39 @@ async def check_expired_subscriptions(bot: Bot | None) -> None:
                     )
         break
 
+async def check_daily_commission() -> None:
+    from backend.app.services.commission import aggregate_daily_commission
+    try:
+        await aggregate_daily_commission()
+    except Exception as e:
+        logger.error(f"Error in daily commission aggregation: {e}")
+
 async def start_scheduler(bot: Bot | None) -> None:
     logger.info("Subscription expiration scheduler worker started.")
     
     # 5 seconds interval for fast verification in tests, otherwise 60 seconds
     interval = 5 if settings.env == "testing" else 60
     
+    # State for daily task
+    from datetime import timedelta
+    last_commission_run = None
+    
     try:
         while True:
+            now = datetime.now(timezone.utc)
+            
+            # 1. Run subscription checker
             try:
                 await check_expired_subscriptions(bot)
             except Exception as e:
                 logger.error(f"Error in subscription checker execution loop: {e}")
                 
+            # 2. Run daily commission at midnight UTC
+            if last_commission_run is None or now.date() > last_commission_run.date():
+                if now.hour == 0 or settings.env == "testing":
+                    await check_daily_commission()
+                    last_commission_run = now
+                    
             await asyncio.sleep(interval)
     except asyncio.CancelledError:
         logger.info("Subscription expiration scheduler worker stopped.")
