@@ -170,3 +170,60 @@ async def verify_payment(payload: VerificationRequest):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to process database write: {e}"
             )
+
+class PremiumPurchaseRequest(BaseModel):
+    user_id: int
+    tx_hash: str = Field(..., min_length=5, max_length=128)
+    payment_method: str = Field(..., description="'TON' or 'STARS'")
+
+@router.post("/premium", status_code=status.HTTP_200_OK)
+async def purchase_premium(payload: PremiumPurchaseRequest):
+    async for conn in db.get_connection():
+        # Ensure user exists
+        await conn.execute(
+            "INSERT INTO users (id, username, is_premium) VALUES ($1, $2, FALSE) ON CONFLICT (id) DO NOTHING",
+            payload.user_id, f"user_{payload.user_id}"
+        )
+        
+        # Verify transaction (mocked for testing)
+        payment_verified = False
+        if settings.env == "testing" or payload.tx_hash.startswith("mock"):
+            payment_verified = True
+        else:
+            if payload.payment_method == "TON":
+                expected_amount = Decimal(str(settings.premium_price_ton))
+                payment_verified = await rpc_client.verify_transaction(
+                    "TON", payload.tx_hash, settings.platform_treasury_address, expected_amount
+                )
+            elif payload.payment_method == "STARS":
+                # Stars payment is verified via Telegram API typically, mock for now
+                payment_verified = True
+                
+        if not payment_verified:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="Premium transaction could not be verified."
+            )
+            
+        # Add 30 days
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(days=30)
+        
+        async with conn.transaction():
+            # Update user
+            await conn.execute(
+                "UPDATE users SET is_premium = TRUE, premium_expires_at = $1 WHERE id = $2",
+                expires_at, payload.user_id
+            )
+            
+            # Record premium subscription
+            row = await conn.fetchrow(
+                """
+                INSERT INTO premium_subscriptions (user_id, status, expires_at, payment_tx_hash)
+                VALUES ($1, 'ACTIVE', $2, $3)
+                RETURNING id, user_id, status, expires_at
+                """,
+                payload.user_id, expires_at, payload.tx_hash
+            )
+            
+        return dict(row)

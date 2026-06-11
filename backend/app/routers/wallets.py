@@ -158,11 +158,18 @@ async def monitor_wallet(payload: MonitoredWalletCreateRequest):
         )
         
         # Check limit
-        user = await conn.fetchrow("SELECT is_premium FROM users WHERE id = $1", payload.user_id)
-        if not user["is_premium"]:
+        user = await conn.fetchrow("SELECT is_premium, referral_credits FROM users WHERE id = $1", payload.user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+            
+        from backend.app.services.referral import get_max_wallets
+        referral_credits = user["referral_credits"] or 0
+        max_slots = get_max_wallets(user["is_premium"], referral_credits)
+        
+        if max_slots != -1:
             count = await conn.fetchval("SELECT COUNT(*) FROM monitored_wallets WHERE user_id = $1", payload.user_id)
-            if count >= 3:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Free users can only monitor up to 3 wallets.")
+            if count >= max_slots:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"You can only monitor up to {max_slots} wallets.")
                 
         try:
             row = await conn.fetchrow(
