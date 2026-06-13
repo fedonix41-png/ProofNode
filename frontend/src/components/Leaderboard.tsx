@@ -200,7 +200,7 @@ export default function ArenaView({ onTraderSelect, walletConnected, onConnectWa
           onClick={() => setSubscriptionTarget(null)}
         >
           <div
-            className="w-full max-w-md bg-slate-950/80 backdrop-blur-2xl rounded-t-3xl p-6 shadow-2xl border-t border-white/10 animate-fade-in"
+            className="w-full max-w-md bg-[#0b0f1e] rounded-t-[32px] p-6 pb-[92px] shadow-[0_-8px_30px_-10px_rgba(251,191,36,0.15)] border-t border-amber-500/20 animate-fade-in relative overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Grabber bar */}
@@ -210,64 +210,65 @@ export default function ArenaView({ onTraderSelect, walletConnected, onConnectWa
               <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="text-xl font-bold flex items-center gap-2 text-white">
+                    <h3 className="text-xl font-bold flex items-center gap-2 text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-200">
                       <Award size={20} className="text-amber-400" />
                       Subscribe to {subscriptionTarget.name}
                     </h3>
                     <p className="text-slate-400 text-xs mt-1">
-                      Platform copy fee split: 5% treasury commission / 95% trader payout.
+                      Platform copy fee split: <span className="text-amber-400/80">5% treasury</span> / <span className="text-emerald-400/80">95% trader</span>
                     </p>
                   </div>
                   <button
-                    className="text-slate-400 hover:text-white text-sm"
+                    className="text-amber-400/50 hover:text-amber-400 text-[10px] font-bold uppercase tracking-wider transition-colors bg-amber-500/5 px-3 py-1.5 rounded-full border border-amber-500/10"
                     onClick={() => setSubscriptionTarget(null)}
                   >
                     Cancel
                   </button>
                 </div>
 
-                <div className="bg-black/30 p-4 rounded-2xl border border-white/5 flex flex-col gap-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Subscription Period:</span>
-                    <span className="font-semibold text-white">30 Days (Automatic Renew)</span>
+                <div className="bg-amber-950/20 p-4 rounded-2xl border border-amber-500/10 flex flex-col gap-3 relative overflow-hidden shadow-inner">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-2xl rounded-full" />
+                  <div className="flex justify-between text-sm relative z-10">
+                    <span className="text-amber-400/70 font-bold text-[10px] uppercase tracking-widest">Subscription Period</span>
+                    <span className="font-black text-white">30 Days (Auto Renew)</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Total Price:</span>
-                    <span className="font-bold text-sky-400">{subscriptionTarget.price}</span>
+                  <div className="flex justify-between text-sm relative z-10">
+                    <span className="text-amber-400/70 font-bold text-[10px] uppercase tracking-widest">Total Price</span>
+                    <span className="font-black text-amber-400">{subscriptionTarget.price}</span>
                   </div>
-                  <div className="flex justify-between text-sm border-t border-white/[0.05] pt-3">
-                    <span className="text-slate-400">DEX Execution Route:</span>
-                    <span className="text-xs font-mono text-white/50">{subscriptionTarget.blockchain} Aggregator</span>
+                  <div className="flex justify-between text-sm border-t border-amber-500/10 pt-3 relative z-10">
+                    <span className="text-amber-400/70 font-bold text-[10px] uppercase tracking-widest">DEX Execution Route</span>
+                    <span className="text-xs font-mono text-white/70">{subscriptionTarget.blockchain} Aggregator</span>
                   </div>
                 </div>
 
-                <p className="text-xs text-slate-400 leading-relaxed">
+                <p className="text-[10px] text-slate-500 leading-relaxed font-medium px-1">
                   Upon confirming, you authorize automated transaction copying when private webhook swaps are triggered. You can change allocation thresholds at any time in the Cabinet.
                 </p>
 
                 <button
-                  className="btn-primary w-full py-4 mt-2 font-bold flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25"
+                  className="bg-amber-500 hover:bg-amber-400 active:scale-95 text-amber-950 font-sans font-bold text-[13px] uppercase tracking-wider w-full py-4 mt-2 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-500/25 border-none"
                   onClick={handleConfirmPay}
                 >
-                  <Coins size={18} />
+                  <Coins size={18} className="fill-amber-950" />
                   Confirm & Transfer Payout
                 </button>
               </div>
             ) : (
-              <div className="flex flex-col gap-4 text-center py-4">
-                <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-2 text-emerald-400 animate-pulse">
-                  <Trophy size={32} />
+              <div className="flex flex-col gap-4 text-center py-4 relative z-10">
+                <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-2 text-emerald-400 animate-pulse shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                  <Trophy size={40} className="fill-emerald-500/20" />
                 </div>
-                <h3 className="text-xl font-bold text-white">Subscription Verified!</h3>
-                <p className="text-sm text-slate-300 max-w-xs mx-auto">
+                <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-300">Subscription Verified!</h3>
+                <p className="text-sm text-slate-300 max-w-xs mx-auto font-medium">
                   You have successfully unlocked 30-day signal tracking and automated cloud copying.
                 </p>
-                <div className="p-3 bg-black/40 rounded-xl font-mono text-xs text-center border border-white/10 break-all select-all">
+                <div className="p-4 bg-emerald-950/20 rounded-xl font-mono text-[13px] text-center border border-emerald-500/20 break-all select-all text-emerald-300 shadow-inner mt-2">
                   t.me/AlphaHubBot/join_group_token
                 </div>
-                <p className="text-xs text-slate-400">Copy invitation code to rejoin official chat.</p>
+                <p className="text-[10px] text-emerald-500/60 uppercase tracking-widest font-bold">Copy invitation code to rejoin official chat.</p>
                 <button
-                  className="btn-secondary w-full py-3 mt-4"
+                  className="bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-sans font-bold text-[13px] uppercase tracking-wider w-full py-4 mt-4 rounded-xl transition-all border border-white/5"
                   onClick={() => setSubscriptionTarget(null)}
                 >
                   Close Checkout

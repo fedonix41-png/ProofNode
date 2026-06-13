@@ -53,10 +53,14 @@
 }
 
 html, body {
-  overflow: hidden !important;
-  height: 100% !important;
-  width: 100% !important;
   position: fixed !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
   margin: 0 !important;
   padding: 0 !important;
 }
@@ -74,14 +78,24 @@ body {
 }
 
 .app-container {
+  position: absolute !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: 100% !important;
+  max-width: 448px !important;
   display: flex !important;
   flex-direction: column !important;
-  height: 100% !important;
-  width: 100% !important;
   overflow: hidden !important;
-  max-width: 448px !important; /* Matches max-w-md */
-  margin: 0 auto !important;
-  position: relative !important;
+  isolation: isolate !important;
+}
+
+main {
+  flex: 1 !important;
+  width: 100% !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 /* Glassmorphism Classes */
@@ -111,7 +125,7 @@ body {
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(24px) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-  z-index: 50 !important;
+  z-index: 60 !important;
   padding-bottom: env(safe-area-inset-bottom, 0) !important;
   border-top-left-radius: 20px !important;
   border-top-right-radius: 20px !important;

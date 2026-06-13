@@ -121,7 +121,7 @@ export default function RadarView({ onTraderSelect }: RadarProps) {
 
       {/* Feedback Toast Notification */}
       {feedbackMsg && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 bg-[#0c1020] border border-white/10 text-white px-4 py-3 rounded-xl text-xs flex items-center gap-2 shadow-2xl animate-fade-in backdrop-blur-md">
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 bg-[#0b0f1e] border border-sky-500/30 px-4 py-3 rounded-xl text-xs flex items-center gap-2 shadow-[0_0_20px_rgba(0,152,234,0.15)] animate-fade-in text-white">
           <ShieldCheck size={14} className="text-[var(--accent-green)]" />
           <span>{feedbackMsg}</span>
         </div>
@@ -234,7 +234,7 @@ export default function RadarView({ onTraderSelect }: RadarProps) {
           onClick={() => setSelectedWalletId(null)}
         >
           <div
-            className="w-full max-w-md bg-[var(--secondary-bg)] rounded-t-3xl p-6 shadow-2xl border-t border-white/10 animate-fade-in"
+            className="w-full max-w-md bg-[#0b0f1e] rounded-t-[32px] p-6 pb-[92px] shadow-[0_-8px_30px_-10px_rgba(0,152,234,0.15)] border-t border-sky-500/20 animate-fade-in relative overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Handle bar */}
@@ -247,16 +247,16 @@ export default function RadarView({ onTraderSelect }: RadarProps) {
                 <div className="flex flex-col gap-4">
                   <div className="flex justify-between items-center">
                     <div>
-                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      <h3 className="text-xl font-bold flex items-center gap-2 text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-blue-400">
                         {sel.label}
-                        <span className="text-xs bg-white/10 text-white/80 px-2 py-0.5 rounded-full font-mono">
+                        <span className="text-[10px] bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded-full font-mono border border-sky-500/20 uppercase tracking-wider">
                           {sel.blockchain}
                         </span>
                       </h3>
-                      <p className="text-hint text-xs font-mono">{sel.address}</p>
+                      <p className="text-slate-400 text-xs font-mono mt-1">{sel.address}</p>
                     </div>
                     <button
-                      className="text-hint hover:text-white text-sm"
+                      className="text-sky-400/50 hover:text-sky-400 text-[10px] font-bold uppercase tracking-wider transition-colors bg-sky-500/5 px-3 py-1.5 rounded-full border border-sky-500/10"
                       onClick={() => setSelectedWalletId(null)}
                     >
                       Close
@@ -264,39 +264,40 @@ export default function RadarView({ onTraderSelect }: RadarProps) {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 my-2">
-                    <div className="flex flex-col bg-black/20 p-3 rounded-xl border border-white/5">
-                      <span className="text-hint text-xs">Total Trades</span>
-                      <span className="text-lg font-bold text-white">42</span>
+                    <div className="flex flex-col bg-sky-950/20 p-3 rounded-xl border border-sky-500/10 shadow-inner">
+                      <span className="text-sky-400/70 text-[10px] font-bold uppercase tracking-wider">Total Trades</span>
+                      <span className="text-xl font-black text-white mt-0.5">42</span>
                     </div>
-                    <div className="flex flex-col bg-black/20 p-3 rounded-xl border border-white/5">
-                      <span className="text-hint text-xs">Avg Slip Tolerance</span>
-                      <span className="text-lg font-bold text-white">0.50%</span>
+                    <div className="flex flex-col bg-sky-950/20 p-3 rounded-xl border border-sky-500/10 shadow-inner">
+                      <span className="text-sky-400/70 text-[10px] font-bold uppercase tracking-wider">Avg Slip Tolerance</span>
+                      <span className="text-xl font-black text-white mt-0.5">0.50%</span>
                     </div>
                   </div>
 
-                  <div className="bg-black/30 p-4 rounded-xl border border-white/5">
-                    <h4 className="text-xs font-bold text-hint mb-3">RECENT ACTIVITY LOG</h4>
-                    <div className="flex flex-col gap-2.5">
+                  <div className="bg-black/40 p-4 rounded-xl border border-white/5 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 blur-2xl rounded-full" />
+                    <h4 className="text-[10px] font-bold text-slate-500 mb-3 tracking-widest uppercase">Recent Activity Log</h4>
+                    <div className="flex flex-col gap-3 relative z-10">
                       <div className="flex justify-between items-center text-xs">
                         <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-[var(--accent-green)]" />
-                          <span className="text-white/90">BUY $SCALE</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-green)] animate-pulse" />
+                          <span className="text-white font-medium">BUY $SCALE</span>
                         </div>
-                        <span className="text-hint">5m ago</span>
+                        <span className="text-slate-500 font-mono text-[10px]">5m ago</span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
                         <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-[var(--accent-green)]" />
-                          <span className="text-white/90">BUY $DOGE</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-green)]" />
+                          <span className="text-white font-medium">BUY $DOGE</span>
                         </div>
-                        <span className="text-hint">12m ago</span>
+                        <span className="text-slate-500 font-mono text-[10px]">12m ago</span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
                         <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-[var(--accent-red)]" />
-                          <span className="text-white/90">SELL $USDT</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-red)]" />
+                          <span className="text-white font-medium">SELL $USDT</span>
                         </div>
-                        <span className="text-hint">1h ago</span>
+                        <span className="text-slate-500 font-mono text-[10px]">1h ago</span>
                       </div>
                     </div>
                   </div>
@@ -306,9 +307,9 @@ export default function RadarView({ onTraderSelect }: RadarProps) {
                       setSelectedWalletId(null);
                       if (sel.public_slug) onTraderSelect(sel.public_slug);
                     }}
-                    className="btn-primary w-full py-3 mt-1"
+                    className="bg-sky-500 hover:bg-sky-400 active:scale-95 text-slate-950 font-sans font-bold text-[13px] uppercase tracking-wider w-full py-4 mt-2 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-sky-500/25 border-none"
                   >
-                    <Zap size={16} />
+                    <Zap size={16} className="fill-slate-950" />
                     Configure Automated Copy
                   </button>
                 </div>

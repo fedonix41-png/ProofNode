@@ -70,11 +70,14 @@ export default function App() {
 
   return (
     <TonConnectUIProvider manifestUrl="https://raw.githubusercontent.com/ton-community/tutorials/main/03-client/test/public/tonconnect-manifest.json">
-      <div className="app-container text-slate-100 font-sans select-none antialiased relative">
-        {/* Background Mesh Gradients */}
-        <div className="absolute top-[-100px] left-[-100px] w-[500px] h-[500px] bg-sky-500/15 rounded-full blur-[120px] pointer-events-none -z-10"></div>
-        <div className="absolute bottom-[-50px] right-[-50px] w-[400px] h-[400px] bg-fuchsia-600/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
-        <div className="absolute top-[200px] right-[100px] w-[300px] h-[300px] bg-blue-500/10 rounded-full blur-[80px] pointer-events-none -z-10"></div>
+      {/* Fixed Isolated Background Mesh Gradients to prevent horizontal scrolling */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-[-100px] left-[-100px] w-[500px] h-[500px] bg-sky-500/15 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[-50px] right-[-50px] w-[400px] h-[400px] bg-fuchsia-600/10 rounded-full blur-[100px]"></div>
+        <div className="absolute top-[200px] right-[100px] w-[300px] h-[300px] bg-blue-500/10 rounded-full blur-[80px]"></div>
+      </div>
+
+      <div className="app-container text-slate-100 font-sans select-none antialiased">
 
         {/* Mini App Simulated Top Header */}
         <header className="bg-white/5 sticky top-0 z-50 border-b border-white/10 p-3 text-xs flex justify-between items-center backdrop-blur-md">

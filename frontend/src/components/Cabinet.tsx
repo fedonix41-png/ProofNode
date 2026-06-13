@@ -394,9 +394,9 @@ export default function CabinetView(_props: CabinetProps) {
 
       {/* Toast Notification */}
       {toastMsg && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 bg-slate-950/80 backdrop-blur-xl border border-white/10 text-white px-4 py-3 rounded-xl text-xs flex items-center gap-2 shadow-2xl animate-fade-in">
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 bg-[#0b0f1e] border border-emerald-500/30 px-4 py-3 rounded-xl text-xs flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.15)] animate-fade-in text-white">
           <ShieldCheck size={14} className="text-emerald-400" />
-          <span>{toastMsg}</span>
+          <span className="font-medium tracking-wide">{toastMsg}</span>
         </div>
       )}
     </div>
