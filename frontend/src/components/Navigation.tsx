@@ -1,42 +1,41 @@
 import React from 'react';
-import { Radar, TrendingUp, User } from 'lucide-react';
+import { Radar, Trophy, User } from 'lucide-react';
 
 export type Tab = 'radar' | 'leaderboard' | 'cabinet';
 
 interface NavigationProps {
   activeTab: Tab;
   setActiveTab: (tab: Tab) => void;
+  selectedTraderSlug?: string | null;
+  t: any;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab }) => {
+export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, selectedTraderSlug, t }) => {
   return (
-    <nav className="bottom-nav">
-      <a 
-        className={`nav-item ${activeTab === 'radar' ? 'active' : ''}`} 
-        onClick={(e) => { e.preventDefault(); setActiveTab('radar'); }}
-        href="#radar"
+    <nav className="bottom-nav max-w-md mx-auto">
+      <button
+        onClick={() => setActiveTab('radar')}
+        className={`nav-item ${activeTab === 'radar' && !selectedTraderSlug ? 'active' : ''}`}
       >
-        <Radar size={24} />
-        <span>Radar</span>
-      </a>
-      
-      <a 
-        className={`nav-item ${activeTab === 'leaderboard' ? 'active' : ''}`} 
-        onClick={(e) => { e.preventDefault(); setActiveTab('leaderboard'); }}
-        href="#leaderboard"
+        <Radar size={20} />
+        <span>{t.radar_tab}</span>
+      </button>
+
+      <button
+        onClick={() => setActiveTab('leaderboard')}
+        className={`nav-item ${activeTab === 'leaderboard' && !selectedTraderSlug ? 'active' : ''}`}
       >
-        <TrendingUp size={24} />
-        <span>Arena</span>
-      </a>
-      
-      <a 
-        className={`nav-item ${activeTab === 'cabinet' ? 'active' : ''}`} 
-        onClick={(e) => { e.preventDefault(); setActiveTab('cabinet'); }}
-        href="#cabinet"
+        <Trophy size={20} />
+        <span>{t.arena_tab}</span>
+      </button>
+
+      <button
+        onClick={() => setActiveTab('cabinet')}
+        className={`nav-item ${activeTab === 'cabinet' && !selectedTraderSlug ? 'active' : ''}`}
       >
-        <User size={24} />
-        <span>Cabinet</span>
-      </a>
+        <User size={20} />
+        <span>{t.cabinet_tab}</span>
+      </button>
     </nav>
   );
 };
